@@ -60,7 +60,6 @@ from transformers.utils import check_min_version, get_full_repo_name, send_examp
 from transformers.utils.versions import require_version
 from common_utils import override
 
-
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 
 logger = get_logger(__name__)
@@ -103,7 +102,8 @@ def main():
     # in the environment
     find_unused_parameters = args.get('find_unused_parameters', False)
     ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=find_unused_parameters)
-    accelerator = Accelerator(gradient_accumulation_steps=args['gradient_accumulation_steps'], kwargs_handlers=[ddp_kwargs])
+    accelerator = Accelerator(gradient_accumulation_steps=args['gradient_accumulation_steps'],
+                              kwargs_handlers=[ddp_kwargs])
 
     # Make one log on every process with the configuration for debugging.
     logging.basicConfig(
@@ -176,7 +176,7 @@ def main():
 
     # Figure out how many steps we should save the Accelerator states
     checkpointing_steps = args['checkpointing_steps']
-    if checkpointing_steps is not None and isinstance(checkpointing_steps, str) and checkpointing_steps.isdigit() :
+    if checkpointing_steps is not None and isinstance(checkpointing_steps, str) and checkpointing_steps.isdigit():
         checkpointing_steps = int(checkpointing_steps)
 
     # Train!
@@ -212,7 +212,8 @@ def main():
                 lr_scheduler.step()
                 optimizer.zero_grad()
             if step_until_now % args['logging_steps'] == 0 and accelerator.is_local_main_process:
-                logging.info("Averaged loss at {}-{} (epoch-step) is {:.3f}".format(epoch, step_until_now, sum(total_loss) / len(total_loss)))
+                logging.info("Averaged loss at {}-{} (epoch-step) is {:.3f}".format(epoch, step_until_now,
+                                                                                    sum(total_loss) / len(total_loss)))
                 total_loss = []
             # Checks if the accelerator has performed an optimization step behind the scenes
             if accelerator.sync_gradients:

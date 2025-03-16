@@ -14,6 +14,7 @@ from transformers import AutoModel, AutoTokenizer
 from mytools.tool_utils import FileUtils
 from glob import glob
 import time
+
 random.seed(10086)
 
 logging.basicConfig(
@@ -23,7 +24,6 @@ logging.basicConfig(
         logging.StreamHandler()
     ],
 )
-
 
 
 def test_retrieval_after_addvalid(valid_retrieval_prefix, valid_data_path, retriever_tokenizer_path):
@@ -63,7 +63,7 @@ def test_tokenizer_time(tgt_corpus_data_path, retriever_tokenizer_path):
         tokenized_data.append(retriever_tokenizer(line)['input_ids'])
     end_time = time.time()
     logging.info("End simple tokenization... Cost of time: {}".format(end_time - start_time))
-    
+
     logging.info("Start converting to ids tokenization...")
     start_time = time.time()
     for line in tokenized_data:
@@ -91,7 +91,7 @@ def tokenize_corpus(tgt_corpus_data_path, retriever_tokenizer_path, save_tag="xl
             corpus_ids.extend(batch_out['input_ids'])
             corpus_tokens.extend([retriever_tokenizer.convert_ids_to_tokens(it) for it in batch_out['input_ids']])
             batch = []
-        
+
     if batch:
         batch_out = retriever_tokenizer(batch, truncation=True)
         corpus_ids.extend(batch_out['input_ids'])
@@ -104,8 +104,10 @@ def tokenize_corpus(tgt_corpus_data_path, retriever_tokenizer_path, save_tag="xl
 def decode_xlmr_with_brackets(input_tokens, insert_ids, sepcial_token=[]):
     s, e = insert_ids
     new_input_tokens = [tk for tk in input_tokens]
-    new_input_tokens.insert(e+1, "]]")
-    new_input_tokens[s] = "▁[[" + new_input_tokens[s] if not new_input_tokens[s].startswith("▁") else "▁[[" + new_input_tokens[s][1:]
+    new_input_tokens.insert(e + 1, "]]")
+    new_input_tokens[s] = "▁[[" + new_input_tokens[s] if not new_input_tokens[s].startswith("▁") else "▁[[" + \
+                                                                                                      new_input_tokens[
+                                                                                                          s][1:]
     text = ""
     for tk in new_input_tokens:
         if tk in sepcial_token:
@@ -120,8 +122,10 @@ def decode_xlmr_with_brackets(input_tokens, insert_ids, sepcial_token=[]):
 def decode_labse_with_brackets(input_tokens, insert_ids, sepcial_token=None):
     s, e = insert_ids
     new_input_tokens = [tk for tk in input_tokens]
-    new_input_tokens.insert(e+1, "##]]")
-    new_input_tokens[s] = "[[" + new_input_tokens[s] if not new_input_tokens[s].startswith("##") else "##[[" + new_input_tokens[s][2:]
+    new_input_tokens.insert(e + 1, "##]]")
+    new_input_tokens[s] = "[[" + new_input_tokens[s] if not new_input_tokens[s].startswith("##") else "##[[" + \
+                                                                                                      new_input_tokens[
+                                                                                                          s][2:]
     text = ""
     for tk in new_input_tokens:
         if tk in sepcial_token:
@@ -136,7 +140,7 @@ def decode_labse_with_brackets(input_tokens, insert_ids, sepcial_token=None):
 def merge_analysis_data(analysis_data_paths, save_path, topk=-1):
     if isinstance(analysis_data_paths, str):
         analysis_data_paths = analysis_data_paths.split(",")
-    
+
     data_list = []
     for data_path in analysis_data_paths:
         phrase_data = FileUtils.load_file(data_path, "json")
@@ -160,19 +164,23 @@ def merge_analysis_data(analysis_data_paths, save_path, topk=-1):
                     else:
                         main_alignment[p] = al_p_list
         if topk > 0:
-            main_data[idx]['alignment'] = [(p, *sorted(al_p_list, key=lambda x: -x[-1])[:topk]) for p, al_p_list in main_alignment.items()]
+            main_data[idx]['alignment'] = [(p, *sorted(al_p_list, key=lambda x: -x[-1])[:topk]) for p, al_p_list in
+                                           main_alignment.items()]
         else:
-            main_data[idx]['alignment'] = [(p, *sorted(al_p_list, key=lambda x: -x[-1])) for p, al_p_list in main_alignment.items()]
+            main_data[idx]['alignment'] = [(p, *sorted(al_p_list, key=lambda x: -x[-1])) for p, al_p_list in
+                                           main_alignment.items()]
     main_data = list(main_data.values())
     FileUtils.save_file(main_data, save_path, "json")
 
 
-def assemble_sentence_retrieval_data(datastore_corpus_data_path, src_data_path, ref_data_path, retrieval_out_path, save_path, topk=10):
+def assemble_sentence_retrieval_data(datastore_corpus_data_path, src_data_path, ref_data_path, retrieval_out_path,
+                                     save_path, topk=10):
     corpus = FileUtils.load_file(datastore_corpus_data_path)
     src_data = FileUtils.load_file(src_data_path)
     ref_data = FileUtils.load_file(ref_data_path)
     retrieval_out = FileUtils.load_file(retrieval_out_path)
-    query_ids, search_ids, search_dist = retrieval_out['query_ids'], retrieval_out['search_ids'], retrieval_out['search_dist']
+    query_ids, search_ids, search_dist = retrieval_out['query_ids'], retrieval_out['search_ids'], retrieval_out[
+        'search_dist']
     output_data = []
     for i in range(len(query_ids)):
         sid = int(query_ids[i])
@@ -186,8 +194,12 @@ def assemble_sentence_retrieval_data(datastore_corpus_data_path, src_data_path, 
     FileUtils.save_file(output_data, save_path, "json")
 
 
-def assemble_analysis_data(src_data_prefix, datastore_data_prefix, src_corpus_data_path, ref_corpus_data_path, datastore_corpus_data_path, retriever_tokenizer_path, retrieval_tag="", topk=1, use_raw_phrase=False, model_type="xlmr", chunk_size=6, chunk_size_epsilon=2, avoid_same_sentid=False, tgt_lang="en"):
-    n_src_shrads, n_tgt_shards = len(list(glob(src_data_prefix + "*.repr.sid"))), len(list(glob(datastore_data_prefix + "*.repr.dat")))
+def assemble_analysis_data(src_data_prefix, datastore_data_prefix, src_corpus_data_path, ref_corpus_data_path,
+                           datastore_corpus_data_path, retriever_tokenizer_path, retrieval_tag="", topk=1,
+                           use_raw_phrase=False, model_type="xlmr", chunk_size=6, chunk_size_epsilon=2,
+                           avoid_same_sentid=False, tgt_lang="en"):
+    n_src_shrads, n_tgt_shards = len(list(glob(src_data_prefix + "*.repr.sid"))), len(
+        list(glob(datastore_data_prefix + "*.repr.dat")))
     logging.info("{} src shards and {} tgt shards".format(n_src_shrads, n_tgt_shards))
     src_shard_ids = list(range(n_src_shrads))
     logging.info("Running on all shards: {}".format(src_shard_ids))
@@ -228,7 +240,7 @@ def assemble_analysis_data(src_data_prefix, datastore_data_prefix, src_corpus_da
             ptr -= 1
         new_start_id = ptr
         ptr = new_end_id
-        while not is_complete_token(tokens[ptr-1]) and ptr < n_toks and (ptr - new_end_id) <= chunk_size_epsilon:
+        while not is_complete_token(tokens[ptr - 1]) and ptr < n_toks and (ptr - new_end_id) <= chunk_size_epsilon:
             ptr += 1
         new_end_id = ptr
         return tokens[new_start_id:new_end_id], start_id - new_start_id, end_id - new_start_id
@@ -237,11 +249,12 @@ def assemble_analysis_data(src_data_prefix, datastore_data_prefix, src_corpus_da
     output_data, tmp_alignment = [], []
     for src_shard_id in src_shard_ids:
         if retrieval_tag:
-            shard = FileUtils.load_file("{}.{}.{}.{}".format(src_data_prefix, src_shard_id, retrieval_tag, "retrieval.out.pt"))
+            shard = FileUtils.load_file(
+                "{}.{}.{}.{}".format(src_data_prefix, src_shard_id, retrieval_tag, "retrieval.out.pt"))
         else:
             shard = FileUtils.load_file("{}.{}.{}".format(src_data_prefix, src_shard_id, "retrieval.out.pt"))
         query_ids, search_ids, search_dist = shard['query_ids'], shard['search_ids'], shard['search_dist']
-        
+
         item_dict = {}
         tmp_text_list = set()
         for ptr in range(len(query_ids)):
@@ -262,7 +275,8 @@ def assemble_analysis_data(src_data_prefix, datastore_data_prefix, src_corpus_da
             if use_raw_phrase:
                 src_phrase = " ".join(src_phrase_text_list[qid].split("▁")).strip()
             else:
-                src_phrase = retriever_tokenizer.decode(retriever_tokenizer.convert_tokens_to_ids(src_phrase_text_list[qid].split()))
+                src_phrase = retriever_tokenizer.decode(
+                    retriever_tokenizer.convert_tokens_to_ids(src_phrase_text_list[qid].split()))
             align_data.append((src_phrase, spos, epos))
             unique_tgt_phrase_ids = []
             for phrase_idx, phrase_dist in zip(search_ids[ptr], search_dist[ptr]):
@@ -274,20 +288,24 @@ def assemble_analysis_data(src_data_prefix, datastore_data_prefix, src_corpus_da
                 start_id, end_id = tgt_phrase_start_pos_list[phrase_idx], tgt_phrase_end_pos_list[phrase_idx]
                 chunk_tokens, new_start_id, new_end_id = find_feasible_chunk(tgt_sent_tokens, start_id, end_id)
                 if model_type == "xlmr":
-                    tgt_sent_with_brackets = decode_xlmr_with_brackets(tgt_sent_tokens, (start_id, end_id), sepcial_token=retriever_tokenizer.special_tokens_map.values())
+                    tgt_sent_with_brackets = decode_xlmr_with_brackets(tgt_sent_tokens, (start_id, end_id),
+                                                                       sepcial_token=retriever_tokenizer.special_tokens_map.values())
                 elif model_type == "labse":
-                    tgt_sent_with_brackets = decode_labse_with_brackets(tgt_sent_tokens, (start_id, end_id), sepcial_token=retriever_tokenizer.special_tokens_map.values())
+                    tgt_sent_with_brackets = decode_labse_with_brackets(tgt_sent_tokens, (start_id, end_id),
+                                                                        sepcial_token=retriever_tokenizer.special_tokens_map.values())
                     tgt_sent_with_brackets = moses_tokenizer.detokenize(tgt_sent_with_brackets.split())
                 else:
                     tgt_sent_with_brackets = ""
 
-                decoded_chunk = retriever_tokenizer.decode(retriever_tokenizer.convert_tokens_to_ids(chunk_tokens), skip_special_tokens=True)
+                decoded_chunk = retriever_tokenizer.decode(retriever_tokenizer.convert_tokens_to_ids(chunk_tokens),
+                                                           skip_special_tokens=True)
                 tgt_phrase = tgt_phrase_text_list[phrase_idx]
 
                 if use_raw_phrase:
                     tgt_phrase = " ".join(tgt_phrase_text_list[phrase_idx].split("▁")).strip()
                 else:
-                    tgt_phrase = retriever_tokenizer.decode(retriever_tokenizer.convert_tokens_to_ids(tgt_phrase_text_list[phrase_idx].split()))
+                    tgt_phrase = retriever_tokenizer.decode(
+                        retriever_tokenizer.convert_tokens_to_ids(tgt_phrase_text_list[phrase_idx].split()))
                 if tgt_phrase in tmp_text_list:
                     continue
                 # align_data.append((phrase_sid, tgt_phrase, decoded_chunk, datastore_corpus[phrase_sid], phrase_dist))
@@ -295,7 +313,7 @@ def assemble_analysis_data(src_data_prefix, datastore_data_prefix, src_corpus_da
                 tmp_text_list.add(tgt_phrase)
                 unique_tgt_phrase_ids.append(phrase_idx)
                 if len(unique_tgt_phrase_ids) >= topk:
-                     break
+                    break
             tmp_alignment.append(align_data)
 
         if tmp_alignment:
@@ -306,11 +324,13 @@ def assemble_analysis_data(src_data_prefix, datastore_data_prefix, src_corpus_da
             output_data.append(item_dict)
 
     FileUtils.save_file(output_data, src_data_prefix + ".analysis.top{}.json".format(topk), "json")
-    
 
 
-def assemble_chunk_data(src_data_prefix, tgt_data_prefix, tgt_corpus_data_prefix, retriever_tokenizer_path, chunk_size=13, chunk_size_epsilon=4, topk=3, logging_step=320000, run_shards="", min_dist=0, model_type="xlmr", retrieval_tag=""):
-    n_src_shrads, n_tgt_shards = len(list(glob(src_data_prefix + "*.repr.sid"))), len(list(glob(tgt_data_prefix + "*.repr.dat")))
+def assemble_chunk_data(src_data_prefix, tgt_data_prefix, tgt_corpus_data_prefix, retriever_tokenizer_path,
+                        chunk_size=13, chunk_size_epsilon=4, topk=3, logging_step=320000, run_shards="", min_dist=0,
+                        model_type="xlmr", retrieval_tag=""):
+    n_src_shrads, n_tgt_shards = len(list(glob(src_data_prefix + "*.repr.sid"))), len(
+        list(glob(tgt_data_prefix + "*.repr.dat")))
     logging.info("{} src shards and {} tgt shards".format(n_src_shrads, n_tgt_shards))
     if run_shards:
         src_shard_ids = run_shards
@@ -345,7 +365,7 @@ def assemble_chunk_data(src_data_prefix, tgt_data_prefix, tgt_corpus_data_prefix
             return not tok.startswith("##")
         else:
             raise NotImplementedError
-    
+
     def find_feasible_chunk(tokens, start_id, end_id):
         n_toks = len(tokens)
         left_chunk_size = chunk_size - (end_id - start_id)
@@ -356,14 +376,15 @@ def assemble_chunk_data(src_data_prefix, tgt_data_prefix, tgt_corpus_data_prefix
             ptr -= 1
         new_start_id = ptr
         ptr = new_end_id
-        while not is_complete_token(tokens[ptr-1]) and ptr < n_toks and (ptr - new_end_id) <= chunk_size_epsilon:
+        while not is_complete_token(tokens[ptr - 1]) and ptr < n_toks and (ptr - new_end_id) <= chunk_size_epsilon:
             ptr += 1
         new_end_id = ptr
         return tokens[new_start_id:new_end_id], start_id - new_start_id, end_id - new_start_id
-    
+
     for src_shard_id in src_shard_ids:
         if retrieval_tag:
-            shard = FileUtils.load_file("{}.{}.{}.{}".format(src_data_prefix, src_shard_id, retrieval_tag, "retrieval.out.pt"))
+            shard = FileUtils.load_file(
+                "{}.{}.{}.{}".format(src_data_prefix, src_shard_id, retrieval_tag, "retrieval.out.pt"))
         else:
             shard = FileUtils.load_file("{}.{}.{}".format(src_data_prefix, src_shard_id, "retrieval.out.pt"))
         query_ids, search_ids, search_dist = shard['query_ids'], shard['search_ids'], shard['search_dist']
@@ -372,7 +393,7 @@ def assemble_chunk_data(src_data_prefix, tgt_data_prefix, tgt_corpus_data_prefix
         print(len(query_ids))
         for ptr in range(len(query_ids)):
             if (step + 1) % logging_step == 0:
-                logging.info("Processed {} phrases".format(step+1))
+                logging.info("Processed {} phrases".format(step + 1))
             step += 1
             qid = query_ids[ptr]
             sid = src_phrase_sentid_list[qid]
@@ -402,7 +423,7 @@ def assemble_chunk_data(src_data_prefix, tgt_data_prefix, tgt_corpus_data_prefix
                 decoded_chunk = " ".join(chunk_tokens)
                 tgt_phrase = tgt_phrase_text_list[phrase_idx]
                 chunk_token_ids = retriever_tokenizer.convert_tokens_to_ids(chunk_tokens)
-                
+
                 special_start, special_end = retriever_tokenizer_out[0], retriever_tokenizer_out[-1]
                 if chunk_token_ids[0] != special_start:
                     chunk_token_ids = [special_start] + chunk_token_ids
@@ -431,7 +452,7 @@ def assemble_chunk_data(src_data_prefix, tgt_data_prefix, tgt_corpus_data_prefix
                 tmp_text_list.add(tgt_phrase)
                 tmp_text_list.add(decoded_chunk)
                 if len(unique_tgt_phrase_ids) >= topk:
-                     break
+                    break
             if not unique_tgt_phrase_ids:
                 continue
 
@@ -442,14 +463,21 @@ def assemble_chunk_data(src_data_prefix, tgt_data_prefix, tgt_corpus_data_prefix
             spos_list.append(tmp_spos_list)
             epos_list.append(tmp_epos_list)
         if retrieval_tag:
-            FileUtils.save_file(sid_list, src_data_prefix + ".{}.{}".format(retrieval_tag, src_shard_id) + ".pbnmt.chunk.sid")
-            FileUtils.save_file(chunk_list, src_data_prefix + ".{}.{}".format(retrieval_tag, src_shard_id) + ".pbnmt.chunk.json", file_type="json")
-            FileUtils.save_file(chunk_input_ids, src_data_prefix  + ".{}.{}".format(retrieval_tag, src_shard_id) + ".pbnmt.chunk.ids")
-            FileUtils.save_file(spos_list, src_data_prefix + ".{}.{}".format(retrieval_tag, src_shard_id) + ".pbnmt.chunk.spos")
-            FileUtils.save_file(epos_list, src_data_prefix + ".{}.{}".format(retrieval_tag, src_shard_id) + ".pbnmt.chunk.epos")
+            FileUtils.save_file(sid_list,
+                                src_data_prefix + ".{}.{}".format(retrieval_tag, src_shard_id) + ".pbnmt.chunk.sid")
+            FileUtils.save_file(chunk_list,
+                                src_data_prefix + ".{}.{}".format(retrieval_tag, src_shard_id) + ".pbnmt.chunk.json",
+                                file_type="json")
+            FileUtils.save_file(chunk_input_ids,
+                                src_data_prefix + ".{}.{}".format(retrieval_tag, src_shard_id) + ".pbnmt.chunk.ids")
+            FileUtils.save_file(spos_list,
+                                src_data_prefix + ".{}.{}".format(retrieval_tag, src_shard_id) + ".pbnmt.chunk.spos")
+            FileUtils.save_file(epos_list,
+                                src_data_prefix + ".{}.{}".format(retrieval_tag, src_shard_id) + ".pbnmt.chunk.epos")
         else:
             FileUtils.save_file(sid_list, src_data_prefix + ".{}".format(src_shard_id) + ".pbnmt.chunk.sid")
-            FileUtils.save_file(chunk_list, src_data_prefix + ".{}".format(src_shard_id) + ".pbnmt.chunk.json", file_type="json")
+            FileUtils.save_file(chunk_list, src_data_prefix + ".{}".format(src_shard_id) + ".pbnmt.chunk.json",
+                                file_type="json")
             FileUtils.save_file(chunk_input_ids, src_data_prefix + ".{}".format(src_shard_id) + ".pbnmt.chunk.ids")
             FileUtils.save_file(spos_list, src_data_prefix + ".{}".format(src_shard_id) + ".pbnmt.chunk.spos")
             FileUtils.save_file(epos_list, src_data_prefix + ".{}".format(src_shard_id) + ".pbnmt.chunk.epos")
@@ -458,6 +486,7 @@ def assemble_chunk_data(src_data_prefix, tgt_data_prefix, tgt_corpus_data_prefix
     print("------------------ Stats ------------------")
     for k, v in stats.items():
         print("{}: {}".format(k, v))
+
 
 def mix_pbnmt_data(main_data_prefix, aux_data_prefix, mixed_data_save_prefix, replace_ratio=0.2):
     def load_pbnmt_resources(phrase_data_prefix):
@@ -471,7 +500,7 @@ def mix_pbnmt_data(main_data_prefix, aux_data_prefix, mixed_data_save_prefix, re
         else:
             raise ValueError("{}.* don't exist".format(phrase_data_prefix))
         return data
-    
+
     main_data = load_pbnmt_resources(main_data_prefix)
     aux_data = load_pbnmt_resources(aux_data_prefix)
     aux_data['phrase_sentid_to_realid'] = {j: i for i, j in enumerate(aux_data['phrase_sentid_to_realid'])}
@@ -481,11 +510,11 @@ def mix_pbnmt_data(main_data_prefix, aux_data_prefix, mixed_data_save_prefix, re
             n_miss_sent += 1
             continue
         else:
-            main_h_si = 0 if realid == 0 else main_data['phrase_ids'][realid-1]
+            main_h_si = 0 if realid == 0 else main_data['phrase_ids'][realid - 1]
             main_h_ei = main_data['phrase_ids'][realid]
-            
+
             aux_realid = aux_data['phrase_sentid_to_realid'][sentid]
-            aux_h_si = 0 if aux_realid == 0 else aux_data['phrase_ids'][aux_realid-1]
+            aux_h_si = 0 if aux_realid == 0 else aux_data['phrase_ids'][aux_realid - 1]
             aux_h_ei = aux_data['phrase_ids'][aux_realid]
 
             replaced_num = max(int(replace_ratio * (main_h_ei - main_h_si)), 0)
@@ -495,14 +524,17 @@ def mix_pbnmt_data(main_data_prefix, aux_data_prefix, mixed_data_save_prefix, re
                 continue
             replaced_main_indices = np.array(random.sample(list(range(main_h_si, main_h_ei)), k=replaced_num))
             selected_aux_indices = np.array(random.sample(list(range(aux_h_si, aux_h_ei)), k=replaced_num))
-            main_data['phrase_hidden_states'][replaced_main_indices] = aux_data['phrase_hidden_states'][selected_aux_indices]
+            main_data['phrase_hidden_states'][replaced_main_indices] = aux_data['phrase_hidden_states'][
+                selected_aux_indices]
             for enum_i, rep_id in enumerate(replaced_main_indices):
                 sel_rep_id = selected_aux_indices[enum_i]
                 assert 0 <= sel_rep_id - aux_h_si < len(aux_data['phrase_start_pos'][aux_realid])
                 assert 0 <= rep_id - main_h_si < len(main_data['phrase_start_pos'][realid])
-                main_data['phrase_start_pos'][realid][rep_id - main_h_si] = aux_data['phrase_start_pos'][aux_realid][sel_rep_id - aux_h_si]
-                main_data['phrase_end_pos'][realid][rep_id - main_h_si] = aux_data['phrase_end_pos'][aux_realid][sel_rep_id - aux_h_si]
-    
+                main_data['phrase_start_pos'][realid][rep_id - main_h_si] = aux_data['phrase_start_pos'][aux_realid][
+                    sel_rep_id - aux_h_si]
+                main_data['phrase_end_pos'][realid][rep_id - main_h_si] = aux_data['phrase_end_pos'][aux_realid][
+                    sel_rep_id - aux_h_si]
+
     logging.info("{} sents are missed".format(n_miss_sent))
     logging.info("{} sents are empty".format(n_empty_repr))
 
@@ -513,9 +545,9 @@ def mix_pbnmt_data(main_data_prefix, aux_data_prefix, mixed_data_save_prefix, re
     FileUtils.save_file(main_data['phrase_hidden_states'], "{}.npy".format(mixed_data_save_prefix))
 
 
-
 def analyze_retrieval_dist(src_data_prefix, tgt_data_prefix, topk=10, is_train_data=False):
-    n_src_shrads, n_tgt_shards = len(list(glob(src_data_prefix + "*.repr.sid"))), len(list(glob(tgt_data_prefix + "*.repr.sid")))
+    n_src_shrads, n_tgt_shards = len(list(glob(src_data_prefix + "*.repr.sid"))), len(
+        list(glob(tgt_data_prefix + "*.repr.sid")))
     src_shard_ids = list(range(n_src_shrads))
     logging.info("{} src shards".format(n_src_shrads))
     src_phrase_sentid_list = FileUtils.load_shards(src_data_prefix, "repr.sid", n_src_shrads)
@@ -542,7 +574,7 @@ def analyze_retrieval_dist(src_data_prefix, tgt_data_prefix, topk=10, is_train_d
                     continue
                 tmp_text_list.add(phrase_text)
                 cur_dist.append(phrase_dist)
-    
+
     # analysis 1: overall dist
     def overall_avg(dists):
         sum_dist, n_dist = 0, 0
@@ -551,7 +583,7 @@ def analyze_retrieval_dist(src_data_prefix, tgt_data_prefix, topk=10, is_train_d
                 sum_dist += d
                 n_dist += 1
         return sum_dist / n_dist
-    
+
     # analysis 1: bin dist
     def stats_bins(dists):
         bin_size, max_size = 5, 100
@@ -563,15 +595,17 @@ def analyze_retrieval_dist(src_data_prefix, tgt_data_prefix, topk=10, is_train_d
             for d in it:
                 for i in orders:
                     if d > i:
-                        bins[i] += 1/total_n * 100
+                        bins[i] += 1 / total_n * 100
                         break
         return bins
+
     print(overall_avg(dists))
     print(stats_bins(dists))
 
 
 def remap_phrase(from_data_prefix, to_data_prefix, max_step=200):
-    n_from_shrads, n_to_shards = len(list(glob(from_data_prefix + "*.repr.txt"))), len(list(glob(to_data_prefix + "*.repr.txt")))
+    n_from_shrads, n_to_shards = len(list(glob(from_data_prefix + "*.repr.txt"))), len(
+        list(glob(to_data_prefix + "*.repr.txt")))
     from_phrase_text_list = FileUtils.load_shards(from_data_prefix, "repr.txt", n_from_shrads)
     to_phrase_text_list = FileUtils.load_shards(to_data_prefix, "repr.txt", n_to_shards)
     i, j, max_i, max_j = 0, 0, len(from_phrase_text_list), len(to_phrase_text_list)
@@ -595,22 +629,23 @@ def remap_phrase(from_data_prefix, to_data_prefix, max_step=200):
         else:
             temp_i, temp_j = i, j
             for step in range(max_step):
-                if from_phrase_text_list[i+step] == to_phrase_text_list[j]:
-                    if check_match_level(i+step, j) < 5:
+                if from_phrase_text_list[i + step] == to_phrase_text_list[j]:
+                    if check_match_level(i + step, j) < 5:
                         continue
                     else:
-                        i = i+step
+                        i = i + step
                         break
-                    
+
             for step in range(max_step):
-                if from_phrase_text_list[i] == to_phrase_text_list[j+step]:
-                    if check_match_level(i, j+step) < 5:
+                if from_phrase_text_list[i] == to_phrase_text_list[j + step]:
+                    if check_match_level(i, j + step) < 5:
                         continue
                     else:
-                        j = j+step
+                        j = j + step
                         break
             if i == temp_i and j == temp_j:
-                import pdb; pdb.set_trace()
+                import pdb;
+                pdb.set_trace()
                 raise RuntimeError("Non-matchable at {}-{}".format(i, j))
 
     FileUtils.save_file(map_dict, from_data_prefix + ".phrase.map")
@@ -627,7 +662,8 @@ def remap_retrieval(retrieval_out_prefix, query_map_dict_path, search_map_dict_p
         retrieval_out_path = "{}.{}.retrieval.out.pt".format(retrieval_out_prefix, i)
         retrieval_out = FileUtils.load_file(retrieval_out_path)
         mapped_retrieval_out = {'query_ids': [], 'search_ids': [], 'search_dist': []}
-        for q_id, s_ids, s_dist in zip(retrieval_out['query_ids'], retrieval_out['search_ids'], retrieval_out['search_dist']):
+        for q_id, s_ids, s_dist in zip(retrieval_out['query_ids'], retrieval_out['search_ids'],
+                                       retrieval_out['search_dist']):
             total_query += 1
             if q_id in query_map:
                 new_s_ids, new_s_dist = [], []
@@ -646,8 +682,8 @@ def remap_retrieval(retrieval_out_prefix, query_map_dict_path, search_map_dict_p
         FileUtils.save_file(retrieval_out, FileUtils.handle_file_extension(retrieval_out_path, "old"))
         FileUtils.save_file(mapped_retrieval_out, FileUtils.handle_file_extension(retrieval_out_path, "remap"))
         FileUtils.save_file(mapped_retrieval_out, retrieval_out_path)
-    logging.info("{}/{} ({:.2f}%) queries missed".format(miss_query, total_query, miss_query/total_query * 100))
-    logging.info("{}/{} ({:.2f}%) queries missed".format(miss_key, total_key, miss_key/total_key * 100))
+    logging.info("{}/{} ({:.2f}%) queries missed".format(miss_query, total_query, miss_query / total_query * 100))
+    logging.info("{}/{} ({:.2f}%) queries missed".format(miss_key, total_key, miss_key / total_key * 100))
 
 
 def remap_pos(src_data_path, phrase_pos_prefix, retriever_tokenizer_path, mt_tokenizer_path, max_len=200):
@@ -671,17 +707,18 @@ def remap_pos(src_data_path, phrase_pos_prefix, retriever_tokenizer_path, mt_tok
             print(si)
             continue
         retriever_tokenizer_out = retriever_tokenizer(sent, return_offsets_mapping=True, truncation=True)
-        retriver_phrases, retriever_offset = retriever_tokenizer.convert_ids_to_tokens(retriever_tokenizer_out['input_ids']), retriever_tokenizer_out['offset_mapping']
+        retriver_phrases, retriever_offset = retriever_tokenizer.convert_ids_to_tokens(
+            retriever_tokenizer_out['input_ids']), retriever_tokenizer_out['offset_mapping']
         mt_phrases, mt_phrase_offset = DataUtils.sp_encode(mt_tokenizer, sent, return_offsets_mapping=True)
         offset_map = DataUtils.map_tokenized_sents(retriever_offset, mt_phrase_offset)
         new_starts, new_ends = [], []
         for s, e in zip(phrase_start_pos[ptr], phrase_end_pos[ptr]):
             if not offset_map[s] or not offset_map[e]:
                 repr_ptr += 1
-                logging.info("Empty offset at sent {}, original phrase".format(retriver_phrases[s:e+1]))
+                logging.info("Empty offset at sent {}, original phrase".format(retriver_phrases[s:e + 1]))
                 continue
             if min(offset_map[s]) > max_len or max(offset_map[e]) > max_len:
-                logging.info("Skip over max_len at sent {}, original phrase".format(retriver_phrases[s:e+1]))
+                logging.info("Skip over max_len at sent {}, original phrase".format(retriver_phrases[s:e + 1]))
                 repr_ptr += 1
                 continue
             new_phrase_repr_list.append(phrase_repr[repr_ptr])
@@ -700,9 +737,10 @@ def remap_pos(src_data_path, phrase_pos_prefix, retriever_tokenizer_path, mt_tok
     FileUtils.save_file(new_phrase_end_pos, phrase_pos_prefix + ".mttok.epos")
     FileUtils.save_file(np.stack(new_phrase_repr_list, axis=0), phrase_pos_prefix + ".mttok.npy")
     FileUtils.save_file(new_phrase_rid_list, phrase_pos_prefix + ".mttok.rid")
-        
 
-def assemble_pbnmt_data_debuging_test(src_data_prefix, topk=5, save_type="npy", logging_step=320000, run_shards="", save_tag="debug"):
+
+def assemble_pbnmt_data_debuging_test(src_data_prefix, topk=5, save_type="npy", logging_step=320000, run_shards="",
+                                      save_tag="debug"):
     n_src_shrads = len(list(glob(src_data_prefix + "*.repr.sid")))
     logging.info("{} src shards".format(n_src_shrads))
     # retrieval_out_data = FileUtils.load_shards(src_data_prefix, "retrieval.out.pt", n_src_shrads)
@@ -748,7 +786,7 @@ def assemble_pbnmt_data_debuging_test(src_data_prefix, topk=5, save_type="npy", 
         repr_list.extend(tmp_repr_list)
         spos_list.append(tmp_spos_list)
         epos_list.append(tmp_epos_list)
-        
+
     if save_type == "pt":
         repr_data = torch.stack(repr_list)
         FileUtils.save_file(repr_data, src_data_prefix + ".{}".format(save_tag) + ".pbnmt.phrase.pt")
@@ -786,10 +824,11 @@ def merge_pbnmt_data_shards(src_data_prefix, repr_type="npy", save_tag="all", en
         prev_repr_num = repr_ids[-1]
     h_num = repr_ids[-1]
     logging.info("{} reprs found".format(h_num))
-    
+
     for src_shard_id in range(n_src_shrads):
         if repr_data is None:
-            shard_repr_data = FileUtils.load_file(src_data_prefix + ".{}".format(src_shard_id) + ".pbnmt.phrase.{}".format(repr_type))
+            shard_repr_data = FileUtils.load_file(
+                src_data_prefix + ".{}".format(src_shard_id) + ".pbnmt.phrase.{}".format(repr_type))
             prev_repr_num = 0
             if repr_type == "pt":
                 shard_repr_data = shard_repr_data.numpy()
@@ -799,19 +838,20 @@ def merge_pbnmt_data_shards(src_data_prefix, repr_type="npy", save_tag="all", en
             if enable_memmap:
                 memmap_file = src_data_prefix + ".{}".format(save_tag) + ".pbnmt.phrase.memmap.npy"
                 repr_data = np.memmap(memmap_file, dtype='float32', mode='w+', shape=(h_num, h_size))
-                repr_data[prev_repr_num:prev_repr_num+shard_num] = shard_repr_data
+                repr_data[prev_repr_num:prev_repr_num + shard_num] = shard_repr_data
             else:
                 repr_data = shard_repr_data
             prev_repr_num += shard_num
         else:
-            shard_repr_data = FileUtils.load_file(src_data_prefix + ".{}".format(src_shard_id) + ".pbnmt.phrase.{}".format(repr_type))
+            shard_repr_data = FileUtils.load_file(
+                src_data_prefix + ".{}".format(src_shard_id) + ".pbnmt.phrase.{}".format(repr_type))
             if repr_type == "pt":
                 shard_repr_data = shard_repr_data.numpy()
             elif repr_type != "npy":
                 raise NotImplementedError
             shard_num = shard_repr_data.shape[0]
             if enable_memmap:
-                repr_data[prev_repr_num:prev_repr_num+shard_num] = shard_repr_data
+                repr_data[prev_repr_num:prev_repr_num + shard_num] = shard_repr_data
             else:
                 repr_data = np.concatenate([repr_data, shard_repr_data], axis=0)
             prev_repr_num += shard_num
@@ -820,9 +860,11 @@ def merge_pbnmt_data_shards(src_data_prefix, repr_type="npy", save_tag="all", en
     logging.info("repr_data shape: {}".format(repr_data.shape))
     if not enable_memmap:
         if repr_type == "npy":
-            FileUtils.save_file(repr_data, src_data_prefix + ".{}".format(save_tag) + ".pbnmt.phrase.{}".format(repr_type))
+            FileUtils.save_file(repr_data,
+                                src_data_prefix + ".{}".format(save_tag) + ".pbnmt.phrase.{}".format(repr_type))
         elif repr_type == "pt":
-            FileUtils.save_file(torch.from_numpy(repr_data), src_data_prefix + ".{}".format(save_tag) + ".pbnmt.phrase.{}".format(repr_type))
+            FileUtils.save_file(torch.from_numpy(repr_data),
+                                src_data_prefix + ".{}".format(save_tag) + ".pbnmt.phrase.{}".format(repr_type))
         else:
             raise NotImplementedError
     logging.info("sid_list size: {}".format(len(sid_list)))
@@ -859,10 +901,12 @@ def convert_dat_to_memmap(data_prefix):
         s = e
     logging.info("{} reprs found".format(s))
     logging.info("Saving data to {}".format(memmap_file))
-    
 
-def assemble_pbnmt_data(src_data_prefix, tgt_data_prefix, topk=5, save_type="npy", logging_step=320000, run_shards="", min_dist=0, enable_memmap=False, retrieval_tag=""):
-    n_src_shrads, n_tgt_shards = len(list(glob(src_data_prefix + "*.repr.sid"))), len(list(glob(tgt_data_prefix + "*.repr.dat")))
+
+def assemble_pbnmt_data(src_data_prefix, tgt_data_prefix, topk=5, save_type="npy", logging_step=320000, run_shards="",
+                        min_dist=0, enable_memmap=False, retrieval_tag=""):
+    n_src_shrads, n_tgt_shards = len(list(glob(src_data_prefix + "*.repr.sid"))), len(
+        list(glob(tgt_data_prefix + "*.repr.dat")))
     logging.info("{} src shards and {} tgt shards".format(n_src_shrads, n_tgt_shards))
     if run_shards:
         src_shard_ids = run_shards
@@ -894,7 +938,8 @@ def assemble_pbnmt_data(src_data_prefix, tgt_data_prefix, topk=5, save_type="npy
 
     for src_shard_id in src_shard_ids:
         if retrieval_tag:
-            shard = FileUtils.load_file("{}.{}.{}.{}".format(src_data_prefix, src_shard_id, retrieval_tag, "retrieval.out.pt"))
+            shard = FileUtils.load_file(
+                "{}.{}.{}.{}".format(src_data_prefix, src_shard_id, retrieval_tag, "retrieval.out.pt"))
         else:
             shard = FileUtils.load_file("{}.{}.{}".format(src_data_prefix, src_shard_id, "retrieval.out.pt"))
         query_ids, search_ids, search_dist = shard['query_ids'], shard['search_ids'], shard['search_dist']
@@ -903,7 +948,7 @@ def assemble_pbnmt_data(src_data_prefix, tgt_data_prefix, topk=5, save_type="npy
 
         for ptr in range(len(query_ids)):
             if (step + 1) % logging_step == 0:
-                logging.info("Processed {} phrases".format(step+1))
+                logging.info("Processed {} phrases".format(step + 1))
             step += 1
             qid = query_ids[ptr]
             sid = src_phrase_sentid_list[qid]
@@ -926,7 +971,8 @@ def assemble_pbnmt_data(src_data_prefix, tgt_data_prefix, topk=5, save_type="npy
             for phrase_idx, phrase_dist in zip(search_ids[ptr], search_dist[ptr]):
                 phrase_text = tgt_phrase_text_list[phrase_idx]
                 phrase_sid = tgt_phrase_sentid_list[phrase_idx]
-                if phrase_dist <= min_dist or phrase_text in tmp_text_list or phrase_sid == sid or len(unique_tgt_phrase_ids) >= topk:
+                if phrase_dist <= min_dist or phrase_text in tmp_text_list or phrase_sid == sid or len(
+                        unique_tgt_phrase_ids) >= topk:
                     continue
                 tmp_text_list.add(phrase_text)
                 unique_tgt_phrase_ids.append(phrase_idx)
@@ -953,7 +999,7 @@ def assemble_pbnmt_data(src_data_prefix, tgt_data_prefix, topk=5, save_type="npy
             epos_list.append(tmp_epos_list)
             dist_list.append(tmp_dist_list)
             text_list.append(" |**| ".join(list(tmp_text_list)))
-        
+
         if save_type == "pt":
             repr_data = torch.stack(repr_list)
             FileUtils.save_file(repr_data, src_data_prefix + ".{}".format(src_shard_id) + ".pbnmt.phrase.pt")
@@ -975,7 +1021,9 @@ def assemble_pbnmt_data(src_data_prefix, tgt_data_prefix, topk=5, save_type="npy
     for k, v in stats.items():
         print("{}: {}".format(k, v))
 
-def extract_ngrams(input_file_path, encoder_tokenizer_path, save_prefix, max_ngram_len=4, min_pmi=0.00005, remove_top_freq=10000):
+
+def extract_ngrams(input_file_path, encoder_tokenizer_path, save_prefix, max_ngram_len=4, min_pmi=0.00005,
+                   remove_top_freq=10000):
     def calculate_probs(c, total_num):
         return {w: f / total_num for w, f in c.most_common()}
 
@@ -1003,10 +1051,12 @@ def extract_ngrams(input_file_path, encoder_tokenizer_path, save_prefix, max_ngr
     for key, prob in ngram_prob.items():
         word_probs = np.array([unigram_prob.get(w, 1e-9) for w in key])
         pmi_value_dict[key] = np.log(prob) - np.sum(np.log(word_probs))
-                
-    FileUtils.save_file({k: f for k, f in ngram_counter.most_common()}, save_prefix + ".{}.freq.pt".format(max_ngram_len))
+
+    FileUtils.save_file({k: f for k, f in ngram_counter.most_common()},
+                        save_prefix + ".{}.freq.pt".format(max_ngram_len))
     FileUtils.save_file(pmi_value_dict, save_prefix + ".{}.pmi.pt".format(max_ngram_len))
     FileUtils.save_file(ngram_prob, save_prefix + ".{}.pmi.pt".format(max_ngram_len))
+
 
 # def extract_ngrams(input_file_path, save_path, max_ngram_len=3, min_freq=5):
 #     ngram_lens = list(range(1, max_ngram_len+1))
@@ -1044,7 +1094,6 @@ def encode_phrase(encoder_model_path,
                   cache_size=50000,
                   layer=-1,
                   use_sent_repr=False):
-
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
     encoder = AutoModel.from_pretrained(encoder_model_path).eval().to(device)
     encoder_tokenizer = AutoTokenizer.from_pretrained(encoder_tokenizer_path)
@@ -1060,11 +1109,13 @@ def encode_phrase(encoder_model_path,
         if len(batch) >= batch_size:
             encoder_batch = encoder_tokenizer(batch, return_offsets_mapping=True, truncation=True)
             _, encoder_batch_offset = encoder_batch['input_ids'], encoder_batch['offset_mapping']
-            phrase_batch_data, phrase_batch_offset = DataUtils.sp_encode(phrase_tokenizer, batch, return_offsets_mapping=True)
+            phrase_batch_data, phrase_batch_offset = DataUtils.sp_encode(phrase_tokenizer, batch,
+                                                                         return_offsets_mapping=True)
             outputs, _ = HFUtils.encode(encoder, encoder_tokenizer, batch, device)
             outputs = outputs.hidden_states[layer].cpu()
             cls_repr = outputs[:, 0]
-            offset_map = [DataUtils.map_tokenized_sents(po, eo) for eo, po in zip(encoder_batch_offset, phrase_batch_offset)]
+            offset_map = [DataUtils.map_tokenized_sents(po, eo) for eo, po in
+                          zip(encoder_batch_offset, phrase_batch_offset)]
             for batch_id, (sent, sent_map) in enumerate(zip(phrase_batch_data, offset_map)):
                 for p, p_ids in zip(sent, sent_map):
                     if len(p.split("▁")) > 2 and p_ids:
@@ -1083,19 +1134,21 @@ def encode_phrase(encoder_model_path,
                 indices = []
                 repr_list = []
                 n_shard += 1
-        
+
     if batch:
         encoder_batch = encoder_tokenizer(batch, return_offsets_mapping=True, truncation=True)
         _, encoder_batch_offset = encoder_batch['input_ids'], encoder_batch['offset_mapping']
-        phrase_batch_data, phrase_batch_offset = DataUtils.sp_encode(phrase_tokenizer, batch, return_offsets_mapping=True)
+        phrase_batch_data, phrase_batch_offset = DataUtils.sp_encode(phrase_tokenizer, batch,
+                                                                     return_offsets_mapping=True)
         outputs, _ = HFUtils.encode(encoder, encoder_tokenizer, batch, device)
         outputs = outputs.hidden_states[layer].cpu()
         cls_repr = outputs[:, 0]
-        offset_map = [DataUtils.map_tokenized_sents(po, eo[1:-1]) for eo, po in zip(encoder_batch_offset, phrase_batch_offset)]
+        offset_map = [DataUtils.map_tokenized_sents(po, eo[1:-1]) for eo, po in
+                      zip(encoder_batch_offset, phrase_batch_offset)]
         for batch_id, (sent, sent_map) in enumerate(zip(phrase_batch_data, offset_map)):
             for p, p_ids in zip(sent, sent_map):
                 if len(p.split("▁")) > 2 and p_ids:
-                    s, e = p_ids[0], p_ids[-1]+1
+                    s, e = p_ids[0], p_ids[-1] + 1
                     phrase_repr = outputs[batch_id, e] - outputs[batch_id, s]
                     if use_sent_repr:
                         phrase_repr = torch.cat([cls_repr[batch_id], phrase_repr], dim=-1)
@@ -1181,7 +1234,7 @@ def ngram_sent_matching(query_file, data_file, n=3):
                     sent_data.append([])
                 total_num += 1
             return_data.append(sent_data)
-    logging.info("{:.2f}% ngrams in query file are covered...".format(cov_num/total_num*100))
+    logging.info("{:.2f}% ngrams in query file are covered...".format(cov_num / total_num * 100))
     save_path = FileUtils.handle_file_extension(query_file, "cov.{}".format(n))
     # logging.info(f"Saving data to {save_path}")
     # Utils.save_to_disk(return_data, save_path, file_type=FileType.PT)
@@ -1199,24 +1252,27 @@ def wmt_to_txt(hfds_path, save_dir, src_lang="de", tgt_lang="en", subsets="train
         for it in tqdm(ds[sub]):
             src_data.append(it['translation'][src_lang])
             tgt_data.append(it['translation'][tgt_lang])
-        FileUtils.save_to_disk(src_data, save_dir+"/{}.{}".format(sub, src_lang))
-        FileUtils.save_to_disk(tgt_data, save_dir+"/{}.{}".format(sub, tgt_lang))
+        FileUtils.save_to_disk(src_data, save_dir + "/{}.{}".format(sub, src_lang))
+        FileUtils.save_to_disk(tgt_data, save_dir + "/{}.{}".format(sub, tgt_lang))
 
 
 def remove_duplicate_text(input_file):
     data = FileUtils.load_file(input_file)
-    FileUtils.save_to_disk(DataUtils.remove_duplicate_text(data), FileUtils.handle_file_extension(input_file, "uniq", 'add'))
+    FileUtils.save_to_disk(DataUtils.remove_duplicate_text(data),
+                           FileUtils.handle_file_extension(input_file, "uniq", 'add'))
 
 
-def build_phrase2sent_index(file_path, phrase_tokenizer_path, subword_tokenizer_path, save_path, batch_size=64, max_sent_num=64000):
+def build_phrase2sent_index(file_path, phrase_tokenizer_path, subword_tokenizer_path, save_path, batch_size=64,
+                            max_sent_num=64000):
     data = FileUtils.load_file(file_path)
     phrase_tokenizer = FileUtils.load_spm(phrase_tokenizer_path)
     subword_tokenizer = FileUtils.load_spm(subword_tokenizer_path)
     rand_data_ids = list(range(len(data)))
     random.shuffle(rand_data_ids)
+
     def is_phrase(piece, subword_tokenizer):
         return subword_tokenizer.piece_to_id(piece) == subword_tokenizer.unk_id()
-    
+
     s, data_size = 0, len(data)
     phrase2sent_dict = dict()
     while s < data_size:
@@ -1254,14 +1310,15 @@ def extract_moses_phrase_table(src_file_path, tgt_file_path, s2t_symal_path, sav
             return False
         else:
             return True
-    
+
     def check_adjacent(ui, vi):
-        return ui == vi or ui == (vi+1) or (ui+1) == vi
-    
+        return ui == vi or ui == (vi + 1) or (ui + 1) == vi
+
     src_moses_tokenizer = DataUtils.get_moses_tokenizer(src_lang)
     tgt_moses_tokenizer = DataUtils.get_moses_tokenizer(tgt_lang)
 
-    for sent_id, (orig_src, orig_tgt, src, tgt, s2t) in enumerate(zip(orig_src_data, orig_tgt_data, src_data, tgt_data, s2t_align_data)):
+    for sent_id, (orig_src, orig_tgt, src, tgt, s2t) in enumerate(
+            zip(orig_src_data, orig_tgt_data, src_data, tgt_data, s2t_align_data)):
         orig_src = src_moses_tokenizer.tokenize(orig_src, return_str=True)
         orig_tgt = tgt_moses_tokenizer.tokenize(orig_tgt, return_str=True)
         if len(orig_src.split()) != len(src.split()) or len(orig_tgt.split()) != len(tgt.split()):
@@ -1279,11 +1336,11 @@ def extract_moses_phrase_table(src_file_path, tgt_file_path, s2t_symal_path, sav
             src_phrase, tgt_phrase = src_words[cur_sw_id], tgt_words[cur_tw_id]
             tmp_sw_id, tmp_tw_id = cur_sw_id, cur_tw_id
             phrase_table[(src_phrase, tgt_phrase)] += 1
-            for j in range(i+1, n_s2t):
+            for j in range(i + 1, n_s2t):
                 next_sw_id, next_tw_id = s2t[j]
                 if check_adjacent(tmp_sw_id, next_sw_id) and check_adjacent(tmp_tw_id, next_tw_id):
-                    src_phrase = " ".join(src_words[cur_sw_id:next_sw_id+1])
-                    tgt_phrase = " ".join(tgt_words[cur_tw_id:next_tw_id+1])
+                    src_phrase = " ".join(src_words[cur_sw_id:next_sw_id + 1])
+                    tgt_phrase = " ".join(tgt_words[cur_tw_id:next_tw_id + 1])
                     phrase_table[(src_phrase, tgt_phrase)] += 1
                     tmp_sw_id, tmp_tw_id = next_sw_id, next_tw_id
                 else:
@@ -1297,7 +1354,8 @@ def extract_moses_phrase_table(src_file_path, tgt_file_path, s2t_symal_path, sav
     FileUtils.save_to_disk(final_phrase_table, save_path)
 
 
-def extract_sp_phrase_table(src_file_path, tgt_file_path, s2t_symal_path, src_phrase_tokenizer_path, tgt_phrase_tokenizer_path, subword_tokenizer_path, save_path, min_freq=3):
+def extract_sp_phrase_table(src_file_path, tgt_file_path, s2t_symal_path, src_phrase_tokenizer_path,
+                            tgt_phrase_tokenizer_path, subword_tokenizer_path, save_path, min_freq=3):
     """
     Note: src file and tgt file are un-tokenized data
     Goal: we plan to find the aligned target phrases of each src words/phrase.
@@ -1320,7 +1378,7 @@ def extract_sp_phrase_table(src_file_path, tgt_file_path, s2t_symal_path, src_ph
         # True means the piece is unseen in subword_tokenizer. Thus, it will be 
         # split into multiple parts, i.e. a phrase.
         return subword_tokenizer.piece_to_id(piece) == subword_tokenizer.unk_id()
-    
+
     def cov_rate(goal_piece_offset, aux_piece_offset_list, str_len):
         s1, e1 = goal_piece_offset
         cov_list = [0] * str_len
@@ -1329,8 +1387,9 @@ def extract_sp_phrase_table(src_file_path, tgt_file_path, s2t_symal_path, src_ph
                 if s1 <= j < e1:
                     cov_list[j] = 1
         return sum(cov_list) / (e1 - s1)
-    
-    def find_skip_set(tgt_char_len, tgt_moses_ids, tgt_moses_offset, tgt_moses2phrase_map, tgt_phrase_offset, min_cov_rate=0.6):
+
+    def find_skip_set(tgt_char_len, tgt_moses_ids, tgt_moses_offset, tgt_moses2phrase_map, tgt_phrase_offset,
+                      min_cov_rate=0.6):
         # skip phrases that are not well covered
         aux_piece_offset_list = [tgt_moses_offset[i] for i in tgt_moses_ids]
         skip_set = set()
@@ -1345,28 +1404,34 @@ def extract_sp_phrase_table(src_file_path, tgt_file_path, s2t_symal_path, src_ph
                 if cr < min_cov_rate:
                     skip_set.add(pid)
         return skip_set
-        
-    def update_phrase(phrase_table, last_src_phrase_str, tgt_moses_ids, tgt_moses2phrase_map, tgt_phrase_tok_list, skip_set=set()):
+
+    def update_phrase(phrase_table, last_src_phrase_str, tgt_moses_ids, tgt_moses2phrase_map, tgt_phrase_tok_list,
+                      skip_set=set()):
         prev_idx = -1
         for i in tgt_moses_ids:
             for j in tgt_moses2phrase_map[i]:
                 if j == prev_idx or j in skip_set:
                     continue
                 prev_idx = j
-                if is_phrase(tgt_phrase_tok_list[j], subword_tokenizer) and DataUtils.num_and_punc_rate(tgt_phrase_tok_list[j]) < max_num_punc_rate:
+                if is_phrase(tgt_phrase_tok_list[j], subword_tokenizer) and DataUtils.num_and_punc_rate(
+                        tgt_phrase_tok_list[j]) < max_num_punc_rate:
                     phrase_table[(last_src_phrase_str, tgt_phrase_tok_list[j])] += 1
 
-    for sent_id, (src, tgt, al_src_len, al_tgt_len, s2t) in enumerate(zip(src_data, tgt_data, align_src_lens, align_tgt_lens, s2t_align_data)):
+    for sent_id, (src, tgt, al_src_len, al_tgt_len, s2t) in enumerate(
+            zip(src_data, tgt_data, align_src_lens, align_tgt_lens, s2t_align_data)):
         try:
             src_moses_tok_sent = src_moses_tokenizer.tokenize(src, escape=False, return_str=True)
             tgt_moses_tok_sent = tgt_moses_tokenizer.tokenize(tgt, escape=False, return_str=True)
             src_moses_offset = DataUtils.moses_offset(src, src_moses_tok_sent)
             tgt_moses_offset = DataUtils.moses_offset(tgt, tgt_moses_tok_sent)
-            src_phrase_tok_list, src_phrase_offset = DataUtils.sp_encode(src_phrase_tokenizer, src, return_offsets_mapping=True)
-            tgt_phrase_tok_list, tgt_phrase_offset = DataUtils.sp_encode(tgt_phrase_tokenizer, tgt, return_offsets_mapping=True)
+            src_phrase_tok_list, src_phrase_offset = DataUtils.sp_encode(src_phrase_tokenizer, src,
+                                                                         return_offsets_mapping=True)
+            tgt_phrase_tok_list, tgt_phrase_offset = DataUtils.sp_encode(tgt_phrase_tokenizer, tgt,
+                                                                         return_offsets_mapping=True)
             src_moses2phrase_map = DataUtils.map_tokenized_sents(src_moses_offset, src_phrase_offset)
             tgt_moses2phrase_map = DataUtils.map_tokenized_sents(tgt_moses_offset, tgt_phrase_offset)
-            if al_src_len == 0 or al_tgt_len == 0 or len(src_moses_tok_sent.split()) != al_src_len or len(tgt_moses_tok_sent.split()) != al_tgt_len or not src_moses_offset or not tgt_moses_offset:
+            if al_src_len == 0 or al_tgt_len == 0 or len(src_moses_tok_sent.split()) != al_src_len or len(
+                    tgt_moses_tok_sent.split()) != al_tgt_len or not src_moses_offset or not tgt_moses_offset:
                 n_invalid += 1
                 logging.warn("Skip sentence {}...".format(sent_id))
                 continue
@@ -1391,8 +1456,10 @@ def extract_sp_phrase_table(src_file_path, tgt_file_path, s2t_symal_path, src_ph
                             if last_src_phrase_id in src_moses2phrase_map[sid]:
                                 tgt_moses_ids.append(tid)
                             # finalize current phrase
-                            cur_skip_set = find_skip_set(tgt_char_len, tgt_moses_ids, tgt_moses_offset, tgt_moses2phrase_map, tgt_phrase_offset)
-                            update_phrase(phrase_table, last_src_phrase_str, tgt_moses_ids, tgt_moses2phrase_map, tgt_phrase_tok_list, skip_set=cur_skip_set)
+                            cur_skip_set = find_skip_set(tgt_char_len, tgt_moses_ids, tgt_moses_offset,
+                                                         tgt_moses2phrase_map, tgt_phrase_offset)
+                            update_phrase(phrase_table, last_src_phrase_str, tgt_moses_ids, tgt_moses2phrase_map,
+                                          tgt_phrase_tok_list, skip_set=cur_skip_set)
                         src_moses_ids, tgt_moses_ids = [], []
                     elif src_moses2phrase_map[sid][-1] != src_moses2phrase_map[src_moses_ids[-1]][0]:
                         # This branch means that we are visiting a new src phrase
@@ -1400,8 +1467,10 @@ def extract_sp_phrase_table(src_file_path, tgt_file_path, s2t_symal_path, src_ph
                         last_src_phrase_id = src_moses2phrase_map[src_moses_ids[-1]][-1]
                         last_src_phrase_str = src_phrase_tok_list[last_src_phrase_id]
                         if DataUtils.num_and_punc_rate(last_src_phrase_str) < max_num_punc_rate:
-                            cur_skip_set = find_skip_set(tgt_char_len, tgt_moses_ids, tgt_moses_offset, tgt_moses2phrase_map, tgt_phrase_offset)
-                            update_phrase(phrase_table, last_src_phrase_str, tgt_moses_ids, tgt_moses2phrase_map, tgt_phrase_tok_list, skip_set=cur_skip_set)
+                            cur_skip_set = find_skip_set(tgt_char_len, tgt_moses_ids, tgt_moses_offset,
+                                                         tgt_moses2phrase_map, tgt_phrase_offset)
+                            update_phrase(phrase_table, last_src_phrase_str, tgt_moses_ids, tgt_moses2phrase_map,
+                                          tgt_phrase_tok_list, skip_set=cur_skip_set)
                         src_moses_ids, tgt_moses_ids = [sid], [tid]
                     else:
                         # This branch means that we are still on the same phrase
@@ -1412,8 +1481,10 @@ def extract_sp_phrase_table(src_file_path, tgt_file_path, s2t_symal_path, src_ph
                 last_src_phrase_id = src_moses2phrase_map[src_moses_ids[-1]][-1]
                 last_src_phrase_str = src_phrase_tok_list[last_src_phrase_id]
                 if DataUtils.num_and_punc_rate(last_src_phrase_str) < max_num_punc_rate:
-                    cur_skip_set = find_skip_set(tgt_char_len, tgt_moses_ids, tgt_moses_offset, tgt_moses2phrase_map, tgt_phrase_offset)
-                    update_phrase(phrase_table, last_src_phrase_str, tgt_moses_ids, tgt_moses2phrase_map, tgt_phrase_tok_list, skip_set=cur_skip_set)
+                    cur_skip_set = find_skip_set(tgt_char_len, tgt_moses_ids, tgt_moses_offset, tgt_moses2phrase_map,
+                                                 tgt_phrase_offset)
+                    update_phrase(phrase_table, last_src_phrase_str, tgt_moses_ids, tgt_moses2phrase_map,
+                                  tgt_phrase_tok_list, skip_set=cur_skip_set)
         except Exception:
             logging.error("Sentence {} meets runtime error...".format(sent_id))
     # frequency filter
@@ -1435,10 +1506,12 @@ def train_sp_model(input_file, model_prefix="bpe_model", vocab_size=1000, model_
         model_type=model_type,  # Model type: "bpe", "unigram", "word", or "char"
     )
 
-    print(f"Model trained successfully with model_prefix: '{model_prefix}', vocab_size: {vocab_size}, model_type: '{model_type}'")
+    print(
+        f"Model trained successfully with model_prefix: '{model_prefix}', vocab_size: {vocab_size}, model_type: '{model_type}'")
 
 
-def train_sp_model_for_longpiece(input_file, model_prefix="320k.bpe", vocab_size=320000, model_type="bpe", max_piece_len=36):
+def train_sp_model_for_longpiece(input_file, model_prefix="320k.bpe", vocab_size=320000, model_type="bpe",
+                                 max_piece_len=36):
     # Train the SentencePiece BPE model
     logging.info("Start training BPE model for long pieces")
     spm.SentencePieceTrainer.train(
@@ -1452,7 +1525,8 @@ def train_sp_model_for_longpiece(input_file, model_prefix="320k.bpe", vocab_size
         split_by_whitespace=False,
         num_threads=32
     )
-    logging.info(f"Model trained successfully with model_prefix: '{model_prefix}', vocab_size: {vocab_size}, model_type: '{model_type}'")
+    logging.info(
+        f"Model trained successfully with model_prefix: '{model_prefix}', vocab_size: {vocab_size}, model_type: '{model_type}'")
 
 
 def encode_decode_example(model_prefix="bpe_model"):
@@ -1483,13 +1557,13 @@ def extract_phrases(vocab_file, lang_full_name):
         if pieces[0] == "":
             pieces = pieces[1:]
         if len(pieces) >= 2:
-            s, e = 0, len(pieces)-1
+            s, e = 0, len(pieces) - 1
             for i in range(len(pieces)):
                 if pieces[i] in mystopwords:
                     s += 1
                 else:
                     break
-            for i in range(len(pieces)-1, -1, -1):
+            for i in range(len(pieces) - 1, -1, -1):
                 if pieces[i] in mystopwords:
                     e -= 1
                 else:
@@ -1498,7 +1572,8 @@ def extract_phrases(vocab_file, lang_full_name):
                 useful_phrases.append(it)
                 n_useful += 1
             phrases.append(it)
-    logging.info("total phrase num {}\tvalid phrase num {}\tpercent {:.2f}%".format(len(phrases), n_useful, n_useful/len(phrases)*100))
+    logging.info("total phrase num {}\tvalid phrase num {}\tpercent {:.2f}%".format(len(phrases), n_useful,
+                                                                                    n_useful / len(phrases) * 100))
     FileUtils.save_to_disk(phrases, vocab_file + ".phrase", 'txt')
     FileUtils.save_to_disk(useful_phrases, vocab_file + ".useful.phrase", 'txt')
 
@@ -1517,13 +1592,13 @@ def tokenized_data_analysis(input_file, vocab_file, lang_full_name):
         if pieces[0] == "":
             pieces = pieces[1:]
         if len(pieces) >= 2:
-            s, e = 0, len(pieces)-1
+            s, e = 0, len(pieces) - 1
             for i in range(len(pieces)):
                 if pieces[i] in mystopwords:
                     s += 1
                 else:
                     break
-            for i in range(len(pieces)-1, -1, -1):
+            for i in range(len(pieces) - 1, -1, -1):
                 if pieces[i] in mystopwords:
                     e -= 1
                 else:
@@ -1624,7 +1699,7 @@ def sample_annotated_data(xlsx_path, topk=200, tag="", col_n=3):
         output_path = FileUtils.handle_file_extension(output_path, tag, "add")
     for i, it in enumerate(data):
         if it[col_n] == 1:
-            indices.append(i-1)
+            indices.append(i - 1)
     logging.info("{} indices found".format(len(indices)))
     indices = indices[:topk]
     FileUtils.save_file(indices, output_path)
@@ -1668,6 +1743,7 @@ def main():
         "aligned_pair": aligned_pair,
         "sample_annotated_data": sample_annotated_data
     })
+
 
 if __name__ == "__main__":
     main()

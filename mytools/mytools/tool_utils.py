@@ -25,8 +25,6 @@ import urllib.parse
 import random
 from safetensors.torch import save_file
 
-
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -34,6 +32,7 @@ logging.basicConfig(
         logging.StreamHandler()
     ],
 )
+
 
 class FileType:
     PT = "pt"
@@ -58,11 +57,12 @@ class FileExtensionType:
 # `mlg` stands for multi-lingual
 LANGUAGE_LIST = ["en", "de", "zh", "vi", "fr", "cs", "fi", "ro", "ru", "tr", "ja", "mlg"]
 
+
 class SystemUtils:
     @staticmethod
     def sizeof(data):
-        return asizeof.asizeof(data) 
-    
+        return asizeof.asizeof(data)
+
 
 class MPUtils:
     @staticmethod
@@ -71,8 +71,8 @@ class MPUtils:
             ss = len(data) // nproc
         else:
             ss = len(data) // nproc + 1
-        
-        shards = [data[i*ss:((i+1)*ss)] for i in range(nproc)]
+
+        shards = [data[i * ss:((i + 1) * ss)] for i in range(nproc)]
         return shards
 
     @staticmethod
@@ -104,7 +104,7 @@ class StringUtils:
     @staticmethod
     def is_punct(s):
         return s in string.punctuation
-    
+
     @staticmethod
     def is_num_or_punct(s):
         valid_chars = string.digits + string.punctuation
@@ -118,7 +118,7 @@ class StringUtils:
             return all([result.scheme, result.netloc])
         except:
             return False
-    
+
     @staticmethod
     def has_url(s):
         # Regular expression pattern for matching a broad range of URLs, including plain domain names
@@ -126,7 +126,7 @@ class StringUtils:
             if StringUtils.is_url(w):
                 return True
         return False
-        
+
     def has_image(string):
         # Regular expression for Markdown image link
         markdown_pattern = r'!\[.*?\]\((.*?)\s*(".*?")?\)'
@@ -136,18 +136,18 @@ class StringUtils:
     @staticmethod
     def get_digit_num(n):
         return math.ceil(math.log10(n + 1))
-    
+
     @staticmethod
     def format_number(n, dn=None):
         if dn is None:
             dn = StringUtils.get_digit_num(n) + 3
         return "{:0{}}".format(n, dn)
-    
+
     @staticmethod
     def camel_to_snake(name):
         s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
         return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
-    
+
     @staticmethod
     def find_all_indices(text, substring):
         indices = []
@@ -182,7 +182,7 @@ class FileUtils:
     @staticmethod
     def exists(file_path):
         return path.exists(file_path)
-    
+
     @staticmethod
     def listdir(dir_path, return_full_name=False, only_folder=False, only_file=False):
         files = []
@@ -197,7 +197,6 @@ class FileUtils:
                 files.append(entry if not return_full_name else full_path)
         return files
 
-    
     @staticmethod
     def rename(source_fname, target_fname):
         if os.path.exists(source_fname):
@@ -230,10 +229,10 @@ class FileUtils:
             data_size = len(data)
             assert (data_size % 3) == 0
             for i in range(0, data_size, 3):
-                sent_id, align_ids = DataUtils.parse_giza(data[i:i+3])
+                sent_id, align_ids = DataUtils.parse_giza(data[i:i + 3])
                 align_data[sent_id] = align_ids
         return align_data
-    
+
     @staticmethod
     def load_symal(symal_path, return_str=False):
         data = FileUtils.load_file(symal_path, 'txt')
@@ -250,7 +249,6 @@ class FileUtils:
             return src_lens, tgt_lens, aligns
         else:
             return src_data, tgt_data, aligns
-
 
     @staticmethod
     def get_dir(path):
@@ -282,7 +280,7 @@ class FileUtils:
         if parts:
             ext = parts[-1]
         return ext
-    
+
     @staticmethod
     def load_shards(prefix, suffix, n_shards, flat_data=True):
         data = []
@@ -317,16 +315,16 @@ class FileUtils:
                     yield d
         if shard_size > 0 and shard_data:
             yield shard_data
-        
+
     @staticmethod
     def load_from_disk(fpath, file_tyle=None):
         return FileUtils.load_file(fpath, file_tyle)
-    
+
     @staticmethod
     def file_names_in_zip(fpath):
         with zipfile.ZipFile(fpath, 'r') as fzip:
             return fzip.namelist()
-        
+
     @staticmethod
     def load_zip(zip_file_path, file_names=None):
         file_content = {}
@@ -461,7 +459,7 @@ class FileUtils:
             else:
                 torch.save(data, fpath)
         logging.info("Save file to {}".format(fpath))
-    
+
     @staticmethod
     def handle_file_extension(file_path, new_extension, type=FileExtensionType.ADD, only_return_basename=False):
         from pathlib import Path
@@ -506,7 +504,7 @@ class DataUtils:
         else:
             for it in data:
                 if criteria_fn(it):
-                    dict_data[it[key_idx]].append(it[val_idx])            
+                    dict_data[it[key_idx]].append(it[val_idx])
         return dict(dict_data)
 
     @staticmethod
@@ -527,10 +525,10 @@ class DataUtils:
             index = orig_sent.find(word, i)
             if index < 0:
                 return []
-            indexes.append((index, index+len(word)))
+            indexes.append((index, index + len(word)))
             i = index + len(word)
         return indexes
-    
+
     @staticmethod
     def parse_symal(line):
         al_info = line.strip().split(" {##} ")
@@ -545,7 +543,8 @@ class DataUtils:
                     try:
                         a, b = it.split("p")
                     except Exception:
-                        import pdb; pdb.set_trace()
+                        import pdb;
+                        pdb.set_trace()
                 align_pairs.append((int(a), int(b)))
             align_pairs = sorted(align_pairs, key=lambda x: x[0])
             return al_info[0], al_info[1], align_pairs
@@ -559,7 +558,7 @@ class DataUtils:
         matches = re.findall(r'\{([^}]*)\}', giza_output[2])
         for m in matches:
             # Sicne word id starts from 1 in GIZA++, so we substract 1 here
-            aligned_ids.append([int(it)-1 for it in m.split()])
+            aligned_ids.append([int(it) - 1 for it in m.split()])
         return sentence_id, aligned_ids
 
     @staticmethod
@@ -584,7 +583,7 @@ class DataUtils:
                 offset.append((it.begin, it.end))
         elif isinstance(sents, list):
             for cur_proto in proto:
-                cur_pieces, cur_offset  = [], []
+                cur_pieces, cur_offset = [], []
                 for it in cur_proto.pieces:
                     if out_type == str:
                         cur_pieces.append(it.piece)
@@ -612,7 +611,7 @@ class DataUtils:
     @staticmethod
     def has_overlap(a_span, b_span):
         a_s, a_e = a_span
-        b_s, b_e  = b_span
+        b_s, b_e = b_span
         return a_s <= b_s <= a_e or b_s <= a_s <= b_e
 
     @staticmethod
@@ -655,7 +654,7 @@ class DataUtils:
             ids = list(range(len(sent)))
             ngram_ids = [tuple(ids[i:i + n]) for i in range(0, len(ids) - n + 1, stride)]
             return ngrams, ngram_ids
-    
+
     @staticmethod
     def num_and_punc_rate(sent):
         num_and_punc_set = set(string.digits + string.punctuation)
@@ -685,7 +684,8 @@ class HFUtils:
             if not is_mm:
                 inputs = tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
             else:
-                inputs = tokenizer(text=batch['text'], images=batch['images'], return_tensors="pt", padding=True, truncation=True)
+                inputs = tokenizer(text=batch['text'], images=batch['images'], return_tensors="pt", padding=True,
+                                   truncation=True)
             inputs = {k: v.to(device) for k, v in inputs.items()}
             if mask_padding:
                 mask = inputs["attention_mask"]
@@ -736,7 +736,7 @@ class FaissUtils:
             batch_num += 1
 
         for i in range(batch_num):
-            s, e = i * batch_size, (i+1) * batch_size
+            s, e = i * batch_size, (i + 1) * batch_size
             D, I = index.search(xq[s:e], topk)
             if hist_I is None:
                 hist_I = I
@@ -746,7 +746,7 @@ class FaissUtils:
                 hist_D = np.concatenate((hist_D, D), axis=0)
 
         return hist_D, hist_I
-    
+
 
 class TorchUtils:
 
@@ -762,14 +762,14 @@ class TorchUtils:
         np.random.seed(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
-    
+
     @staticmethod
     def generate_mask(ids, pad_id=0):
         '''generate the mask matrix of the ids, default padding token idx is 0'''
         mask = torch.ones_like(ids)
         mask[ids == pad_id] = 0.
         return mask
-    
+
     @staticmethod
     def batchfy(sequences, pad_id=0):
         device = sequences[0].device
@@ -777,11 +777,10 @@ class TorchUtils:
         attention_mask = TorchUtils.generate_mask(padded_sequences, pad_id).to(device)
         return padded_sequences, attention_mask
 
-
     @staticmethod
     def convert_data_to_tensor(dtype, *args):
         return [torch.tensor(d, dtype=dtype) for d in args]
-    
+
     @staticmethod
     def move_to_device(data, device):
         '''map the tensor on cuda device'''

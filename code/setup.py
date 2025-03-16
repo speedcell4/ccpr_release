@@ -5,6 +5,7 @@ import numpy as np
 import sys
 import pybind11
 
+
 class BuildExt(build_ext):
     def build_extensions(self):
         ct = self.compiler.compiler_type
@@ -14,6 +15,7 @@ class BuildExt(build_ext):
         for ext in self.extensions:
             ext.extra_compile_args = extra_compile_args
         build_ext.build_extensions(self)
+
 
 cpp_module = Extension(
     "efficient_structure",
@@ -30,7 +32,6 @@ cython_module = Extension(
     language="c++",
     extra_compile_args=["-std=c++11"],
 )
-
 
 setup(
     name="efficient_structure",

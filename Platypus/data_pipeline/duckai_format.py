@@ -2,6 +2,7 @@ import json
 import requests
 import pandas as pd
 
+
 def fetch_data_from_url(url):
     headers = {'accept': 'application/json'}
 
@@ -12,7 +13,8 @@ def fetch_data_from_url(url):
     except requests.RequestException as e:
         print(f"Error: {e}")
         return None
-    
+
+
 # MATH
 
 url = 'https://arb.duckai.org/api/lib/math'
@@ -45,8 +47,7 @@ if data is not None:
 else:
     print("No data was returned from the API for Math")
 
-
-#MCAT READING
+# MCAT READING
 
 url = 'https://arb.duckai.org/api/lib/mcatReading'
 data = fetch_data_from_url(url)
@@ -64,10 +65,9 @@ if data is not None:
 
         output = output.split('.', 1)[-1].lstrip()
 
-    # Append the options to the instruction
-        for i, option in enumerate(options, start=65): 
+        # Append the options to the instruction
+        for i, option in enumerate(options, start=65):
             instruction += f"\n{chr(i)}. {option}"
-
 
         # Create a new dictionary with 'input' and 'output' switched
         formatted_entry = {
@@ -83,7 +83,7 @@ if data is not None:
     df = pd.DataFrame(formatted_data)
 
     # Save the DataFrame to a new JSON file
-    df.to_json("formatted_mcat_data.json", orient="records",indent=1)
+    df.to_json("formatted_mcat_data.json", orient="records", indent=1)
 else:
     print("No data was returned from the API for MCAT Reading")
 
@@ -104,10 +104,9 @@ if data is not None:
         options = item['Answer Candidates']
         output = item['Final Answer']
 
-    # Append the options to the instruction
-        for i, option in enumerate(options, start=65):  
+        # Append the options to the instruction
+        for i, option in enumerate(options, start=65):
             instruction += f"\n{chr(i)}. {option}"
-
 
         # Create a new dictionary with 'input' and 'output' switched
         formatted_entry = {
@@ -123,12 +122,11 @@ if data is not None:
     df = pd.DataFrame(formatted_data)
 
     # Save the DataFrame to a new JSON file
-    df.to_json("formatted_law_data.json", orient="records",indent=1)
+    df.to_json("formatted_law_data.json", orient="records", indent=1)
 else:
     print("No data was returned from the API for MCAT Reading")
 
-
-#MCAT SCIENCE
+# MCAT SCIENCE
 
 url = 'https://arb.duckai.org/api/lib/mcatscience/val'
 data = fetch_data_from_url(url)
@@ -146,10 +144,9 @@ if data is not None:
 
         output = output.split('.', 1)[-1].lstrip()
 
-    # Append the options to the instruction
+        # Append the options to the instruction
         for i, option in enumerate(options, start=65):  # ASCII value of 'A' is 65
             instruction += f"\n{chr(i)}. {option}"
-
 
         # Create a new dictionary with 'input' and 'output' switched
         formatted_entry = {
@@ -165,7 +162,7 @@ if data is not None:
     df = pd.DataFrame(formatted_data)
 
     # Save the DataFrame to a new JSON file
-    df.to_json("formatted_mcat_science_data.json", orient="records",indent=1)
+    df.to_json("formatted_mcat_science_data.json", orient="records", indent=1)
 else:
     print("No data was returned from the API for MCAT Science")
 
@@ -173,7 +170,6 @@ else:
 
 url = 'https://arb.duckai.org/api/lib/physics/val'
 data = fetch_data_from_url(url)
-
 
 if data is not None:
     # Extract the ids
@@ -196,7 +192,6 @@ if data is not None:
 
         except:
             print(f"Error with id: {id_}")
-
 
     # Create a DataFrame from the formatted data
     df = pd.DataFrame(formatted_data)

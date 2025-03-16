@@ -15,10 +15,10 @@ class LlamaChatPrompter(object):
         self.response_split_token = "[/INST]"
 
     def generate_prompt(
-        self,
-        instruction: str,
-        input: Union[None, str] = None,
-        label: Union[None, str] = None,
+            self,
+            instruction: str,
+            input: Union[None, str] = None,
+            label: Union[None, str] = None,
     ):
         if input:
             instruction = "{}\n\nInput:\n{}".format(instruction, input)
@@ -52,10 +52,10 @@ class Prompter(object):
             )
 
     def generate_prompt(
-        self,
-        instruction: str,
-        input: Union[None, str] = None,
-        label: Union[None, str] = None,
+            self,
+            instruction: str,
+            input: Union[None, str] = None,
+            label: Union[None, str] = None,
     ) -> str:
         # returns the full prompt from instruction and optional input
         # if a label (=response, =output) is provided, it's also appended.

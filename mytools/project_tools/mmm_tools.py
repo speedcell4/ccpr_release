@@ -15,6 +15,7 @@ from multiprocessing import Process
 from mytools.tool_utils import FileUtils, FileType, logging, StringUtils
 from mytools.openai_tools import call_chat, OpenAIModel
 
+
 def edit_distance(s1, s2):
     m, n = len(s1), len(s2)
     dp = [[0 for _ in range(n + 1)] for _ in range(m + 1)]
@@ -171,10 +172,10 @@ def clean_fewshot_pool(fewshot_pool_path, annotation_file_path, save_path, has_h
             return 1
         else:
             return 0
-    
+
     def category(x):
         return [c.strip() for c in x.split(",")]
-    
+
     new_fewshot_pool = []
     for row in ann:
         if row[0] and row[2] and row[5]:
@@ -187,7 +188,7 @@ def clean_fewshot_pool(fewshot_pool_path, annotation_file_path, save_path, has_h
                 t_s, t_e = int(row[3]), int(row[4])
             else:
                 t_s, t_e = 0, len(turns)
-            turns = turns[t_s:t_e+1]
+            turns = turns[t_s:t_e + 1]
             # turns = [t for t in turns]
             turns = [remove_non_paired_img_tag(t) for t in turns]
             ex['response'] = "\n\n".join(turns)
@@ -195,15 +196,16 @@ def clean_fewshot_pool(fewshot_pool_path, annotation_file_path, save_path, has_h
     logging.info("Found {} non-bad cases".format(len(new_fewshot_pool)))
     FileUtils.save_file(new_fewshot_pool, save_path, 'json')
 
+
 class PromptSet:
     @staticmethod
     def base_prompt():
         return "Please construct a dialogue between a human and a helpful, honest and harmless assistant.\n\nCharacteristics about the assistant:\n1. The assistant is trained to understand text, images, and their combinations.\n2. The assistant can reply the human with images and/or text.\n3. The assistant has exceptional world knowledge and commonsense reasoning capabilities.\n4. The assistant does not have access to the Internet or any other external tools.\n\nCharacteristics about the human:\n1. The human may send images and/or text to the assistant.\n2. The human may ask questions requiring visual reasoning and/or understanding the relations between multiple images.\n3. The human may ask the assistant to create new images based on his/her intention.\n4. The human may ask the assitant to do interesting things, rather than simply describing the content of the image.\n\nThe dialogue contains interleaved text and images. Each image is represented by <imgX> DESCRIPTION </imgX>, where DESCRIPTION is a textual description of the image and X is an index of the image. Please do not assume any further visual information beyond the descriptions. The constructed dialogues must and can only contain the following images:\n\n{}\n\nPlease directly give the dialogue if you understand. The number of turns of the dialogue should be less than 6. The dialogue should be self-contained. Do NOT assume any previous dialogue between the human and the assistant. Please use the same format <imgX> DESCRIPTION </imgX> to denote images in the dialogue.\n"
-    
+
     @staticmethod
     def in_context_prompt():
         return "Please construct a dialogue between a human and a helpful, honest and harmless assistant. The dialogue contains interleaved text and images. Each image is represented by <imgX> DESCRIPTION </imgX>, where DESCRIPTION is a textual description of the image and X is an index of the image. Please do not assume any further visual information beyond the descriptions. \n\nThe constructed dialogues must and can only contain the following input images:\n\n    {}    \n\nCharacteristics about the assistant:\n1. The assistant is trained to understand text, images, and their combinations.\n2. The assistant can reply the human with images and/or text.\n3. The assistant has exceptional world knowledge and commonsense reasoning capabilities.\n4. The assistant does not have access to the Internet or any other external tools.\n5. If the assistant is asked to create an image, it can only show the image in the provided image list.\n\nCharacteristics about the human:\n1. The human may send images and/or text to the assistant.\n2. The human may ask questions requiring visual reasoning and/or understanding the relations between multiple images.\n3. The human may ask the assistant to show images based on his/her intention.\n4. The human may ask the assitant to do interesting things, rather than simply describing the content of the image.\n\n\nProperties of a bad dialogue:\n1. Simply describing or analyzing the content in the image\n2. Dialogue without a good logic.\n\nProperties of a good dialogue:\n1. Introducing extrinsic and attractive information of stuff shown in the image. \n2. Comparing multiple images in a reasonable context\n\nPlease directly give the dialogue if you understand. The number of turns of the dialogue should be less than 6. The dialogue should be self-contained. Do NOT assume any previous dialogue between the human and the assistant. Please use the same format <imgX> DESCRIPTION </imgX> to denote images in the dialogue. Note that the dialogue can stop at any time without an explicit ending.\n\nExamples:\n========\nCase 1:\nInput Images:\n\n    <img0> a group of motorbikes in the desert with a man beside them </img0>\n    <img1> heading out for the open road, on assignment </img1>\n    <img2> person and motorcycle - picture taken by philosopher on the original trip </img2>\n\nOutput Dialogue:\n\nHuman: Hello! I have a question for you. Can you tell me what these images represent and their relation to each other? <img0> a group of motorbikes in the desert with a man beside them </img0> and <img1> heading out for the open road, on assignment </img1>.\n\nAssistant: Of course! The first image shows a group of motorbikes in the desert with a man beside them. The second image symbolizes the act of departing for a journey on assignment. These two images are related in the sense that they both depict the idea of embarking on an adventure or exploration.\n\nHuman: Thank you! That's helpful. Is there any additional context or information you can provide about these images? \n\nAssistant: Yes, I can provide you with a related image that can complement the context. Here is an image that further expands on the first one: <img2> person and motorcycle - picture taken by philosopher on the original trip </img2>. This image shows a person with a motorcycle, which was taken by a philosopher during the original trip. It provides a closer look at the motorcycle and the person's association with it.\n---------\nCase 2:\nInput Images:\n\n    <img0> singer and person performs live during a concert. </img0>\n    <img1> photo of folk rock artist in concert </img1>\n\nOutput Dialogue:\n\n    Human: Hi, I have a question. Can you tell me about the different types of rock music?\n\n    Assistant: Of course! There are various types of rock music. Would you like a brief description or more details about a specific type?\n\n    Human: I'm interested in learning about folk rock and hard rock. Can you provide some information?\n\n    Assistant: Certainly! Folk rock is a subgenre of rock music that combines elements of folk and rock. It often features acoustic instruments, storytelling lyrics, and harmonies. Here's an image of a folk rock artist performing in concert.<img1> photo of folk rock artist in concert </img1>\n\n    Hard rock, on the other hand, is a more aggressive and louder subgenre of rock music. It typically features distorted electric guitars, powerful vocals, and energetic drumming. Here's an image of a hard rock band performing.<img2> hard rock artists of the band performs </img2>\n\n    Human: That's great! Can you show me an image of a singer performing live during a concert?\n\n    Assistant: Absolutely! Here's an image of a singer performing live during a concert.<img0> singer and person performs live during a concert. </img0>\n========"
-    
+
     @staticmethod
     def in_context_prompt_v2():
         return "Please construct a dialogue between a human and a helpful, honest and harmless assistant. The dialogue contains interleaved text and images. Each image is represented by <imgX> DESCRIPTION </imgX>, where DESCRIPTION is a textual description of the image and X is an index of the image. Please do not assume any further visual information beyond the descriptions. \n\nThe constructed dialogues must and can only contain the following input images:\n\n{}\n\nCharacteristics about the assistant:\n1. The assistant is trained to understand text, images, and their combinations.\n2. The assistant can reply the human with images and/or text.\n3. The assistant has exceptional world knowledge and commonsense reasoning capabilities.\n4. The assistant does not have access to the Internet or any other external tools.\n5. If the assistant is asked to create an image, it can only show the image in the provided image list.\n6. Please do not copy the images appearing in the dialogue. The assistant should refer to the previously mentioned image by natural language.\n\nCharacteristics about the human:\n1. The human may send images and/or text to the assistant.\n2. The human may ask questions requiring visual reasoning and/or understanding the relations between multiple images.\n3. The human may ask the assistant to show images based on his/her intention.\n4. The human may ask the assitant to do interesting things, rather than simply describing the content of the image.\n\n\nProperties of a bad dialogue:\n1. Simply describing or analyzing the content in the image\n2. Dialogue without a good logic.\n\nProperties of a good dialogue:\n1. Introducing extrinsic and attractive information of stuff shown in the image. \n2. Discovering the connection between multiple images.  \n3. The dialgoue happens in a reasonable context.\n\nExamples:\n========\n{}\n========\n\nPlease directly give the dialogue if you understand. The number of turns of the dialogue should be less than 6. The dialogue should be self-contained. Do NOT assume any previous dialogue between the human and the assistant. Please use the same format <imgX> DESCRIPTION </imgX> to denote images in the dialogue and do not modify the description of the image. Note that the dialogue can stop at any time without an explicit ending."
@@ -211,13 +213,13 @@ class PromptSet:
     @staticmethod
     def fewshot_example_template():
         return 'Case {}:\n\nInput Images:\n\n{}\n\nOutput Dialogue:\n\n{}'
-    
+
 
 def prepare_fewshot_examples(ex_list):
     template = PromptSet.fewshot_example_template()
     fewshot_list = []
     for i, ex in enumerate(ex_list):
-        case_id = i+1
+        case_id = i + 1
         images = ["    " + img for img in ex['image']]
         images = "\n".join(images)
         dialogue = ex['response']
@@ -229,7 +231,7 @@ def prepare_fewshot_examples(ex_list):
 def select_fewshot_examples(categorized_fewshot_pool, k):
     if isinstance(categorized_fewshot_pool, dict):
         category_keys = list(categorized_fewshot_pool.keys())
-        selected_cats = [random.choice(category_keys) for _ in range(k*len(categorized_fewshot_pool))]
+        selected_cats = [random.choice(category_keys) for _ in range(k * len(categorized_fewshot_pool))]
         visited_ids = []
         visited_cats = []
         rates = [2, 2, 1]
@@ -247,7 +249,7 @@ def select_fewshot_examples(categorized_fewshot_pool, k):
             visited_cats.append(cat)
             ret.append(sampled_ex)
             ptr += 1
-    elif isinstance(categorized_fewshot_pool, list) :
+    elif isinstance(categorized_fewshot_pool, list):
         ret = random.choices(categorized_fewshot_pool, k=k)
     return ret
 
@@ -267,13 +269,14 @@ def reorganize_fewshot_pool(fewshot_pool):
     for eid, ex in enumerate(fewshot_pool):
         cats = ex['category']
         rate = ex['rate']
-        ex['eid'] =  eid
+        ex['eid'] = eid
         for cat in cats:
             categorized_fewshot_pool[cat][rate].append(ex)
     return categorized_fewshot_pool
 
 
-def generate_mmmchat_sub_proc(model, worker_id, grouped_idx, caption_data, save_pref, gen_num, max_img_num, history_data, fewshot_pool):
+def generate_mmmchat_sub_proc(model, worker_id, grouped_idx, caption_data, save_pref, gen_num, max_img_num,
+                              history_data, fewshot_pool):
     random.seed(10086)
     clst_ids = list(range(len(grouped_idx)))
     n_finished = 0
@@ -284,7 +287,7 @@ def generate_mmmchat_sub_proc(model, worker_id, grouped_idx, caption_data, save_
     else:
         prompt_template = PromptSet.in_context_prompt()
     img_nums = list(range(2, max_img_num))
-    sampled_clst_ids = random.choices(clst_ids, k=2*(gen_num + len(history_data)))
+    sampled_clst_ids = random.choices(clst_ids, k=2 * (gen_num + len(history_data)))
     out_data = []
     for cid in sampled_clst_ids:
         cur_example = dict()
@@ -301,7 +304,8 @@ def generate_mmmchat_sub_proc(model, worker_id, grouped_idx, caption_data, save_
             continue
         else:
             history_data.add(sampled_img_ids)
-        sampled_imgs = ["<img{}> {} </img{}>".format(i, caption_data[j]['caption'].strip(), i) for i, j in enumerate(sampled_img_ids)]
+        sampled_imgs = ["<img{}> {} </img{}>".format(i, caption_data[j]['caption'].strip(), i) for i, j in
+                        enumerate(sampled_img_ids)]
         sampled_imgs_assemble = "    " + "\n    ".join(sampled_imgs)
         if fewshot_pool:
             ex_list = select_fewshot_examples(fewshot_pool, k=3)
@@ -332,9 +336,9 @@ def generate_mmmchat_sub_proc(model, worker_id, grouped_idx, caption_data, save_
         #         time.sleep(20)
         #     if success:
         #         break
-        
-    FileUtils.save_to_disk(out_data, save_pref+".{}.data.json".format(worker_id))
-    FileUtils.save_to_disk(list(history_data), save_pref+".{}.hist.json".format(worker_id))
+
+    FileUtils.save_to_disk(out_data, save_pref + ".{}.data.json".format(worker_id))
+    FileUtils.save_to_disk(list(history_data), save_pref + ".{}.hist.json".format(worker_id))
 
 
 def filter_cluster(grouped_idx, match_score, alpha=30.0, min_clst_size=32):
@@ -349,7 +353,8 @@ def filter_cluster(grouped_idx, match_score, alpha=30.0, min_clst_size=32):
     return new_grouped_idx
 
 
-def generate_mmmchat_mp(grouped_idx_path, caption_data_path, save_pref, model=OpenAIModel.GPT3_5, gen_num=10, max_img_num=4, history_data_path="", nproc=4, match_score_path="", fewshot_pool_file=""):
+def generate_mmmchat_mp(grouped_idx_path, caption_data_path, save_pref, model=OpenAIModel.GPT3_5, gen_num=10,
+                        max_img_num=4, history_data_path="", nproc=4, match_score_path="", fewshot_pool_file=""):
     fewshot_pool = FileUtils.load_file(fewshot_pool_file) if fewshot_pool_file else []
 
     grouped_idx = FileUtils.load_file(grouped_idx_path)
@@ -364,15 +369,16 @@ def generate_mmmchat_mp(grouped_idx_path, caption_data_path, save_pref, model=Op
         caption_data = [{"caption": it, 'url': None} for it in caption_data]
     elif file_type == "csv":
         caption_data = [{"caption": it[0], 'url': it[1]} for it in caption_data]
-    
+
     n_clst_per_proc = len(grouped_idx) // nproc + 1
     history_data = set(FileUtils.load_file(history_data_path)) if history_data_path else set()
     procs = []
     gen_num_per_proc = gen_num // nproc + 1
     for i in range(nproc):
-        s, e = n_clst_per_proc * i, n_clst_per_proc * (i+1)
+        s, e = n_clst_per_proc * i, n_clst_per_proc * (i + 1)
         sub_clst = grouped_idx[s:e]
-        generate_mmmchat_sub_proc(model, i, sub_clst, caption_data, save_pref, gen_num_per_proc, max_img_num, history_data, fewshot_pool)
+        generate_mmmchat_sub_proc(model, i, sub_clst, caption_data, save_pref, gen_num_per_proc, max_img_num,
+                                  history_data, fewshot_pool)
     #     p = Process(target=generate_mmmchat_sub_proc, args=(model, i, sub_clst, caption_data, save_pref, gen_num_per_proc, max_img_num, history_data))
     #     p.start()
     #     procs.append(p)
@@ -385,11 +391,11 @@ def generate_mmmchat(grouped_idx_path, caption_data_path, save_pref, gen_num=10,
     grouped_idx = FileUtils.load_file(grouped_idx_path)
     caption_data = FileUtils.load_file(caption_data_path)
     clst_ids = list(range(len(grouped_idx)))
-    n_finished  = 0
+    n_finished = 0
     prompt_template = PromptSet.base_prompt()
     img_nums = list(range(2, max_img_num))
     history_data = set(FileUtils.load_file(history_data_path)) if history_data_path else set()
-    sampled_clst_ids = random.choices(clst_ids, k=2*(gen_num + len(history_data)))
+    sampled_clst_ids = random.choices(clst_ids, k=2 * (gen_num + len(history_data)))
     with open(save_pref + ".dialogue.txt", 'w') as fout:
         for cid in sampled_clst_ids:
             if (n_finished + 1) % 1000 == 0:
@@ -405,7 +411,8 @@ def generate_mmmchat(grouped_idx_path, caption_data_path, save_pref, gen_num=10,
                 continue
             else:
                 history_data.add(sampled_img_ids)
-            sampled_imgs = ["<img{}> {} </img{}>".format(i, caption_data[j].strip(), i) for i, j in enumerate(sampled_img_ids)]
+            sampled_imgs = ["<img{}> {} </img{}>".format(i, caption_data[j].strip(), i) for i, j in
+                            enumerate(sampled_img_ids)]
             sampled_imgs_assemble = "\n\n".join(sampled_imgs)
             query_prompt = prompt_template.format(sampled_imgs_assemble)
             try:
@@ -415,7 +422,7 @@ def generate_mmmchat(grouped_idx_path, caption_data_path, save_pref, gen_num=10,
             except Exception:
                 continue
             n_finished += 1
-    FileUtils.save_to_disk(list(history_data), save_pref+".hist.pt")
+    FileUtils.save_to_disk(list(history_data), save_pref + ".hist.pt")
 
 
 def generate_from_old(old_data_path, save_path, model=OpenAIModel.GPT4, fewshot_pool_file=""):
@@ -460,6 +467,7 @@ def main():
         "clean_fewshot_pool": clean_fewshot_pool,
         "clean_mim_data": clean_mim_data
     })
+
 
 if __name__ == "__main__":
     main()

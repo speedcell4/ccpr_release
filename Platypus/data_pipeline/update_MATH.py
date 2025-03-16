@@ -5,6 +5,8 @@ import re
 import argparse
 import os
 import subprocess
+
+
 # Script to update the MATH dataset with enhanced solutions from the PRM dataset
 # See convert_prm.py for the creating the required PRM file
 
@@ -39,7 +41,7 @@ def download_files():
     else:
         print("Directory", output_dir, "already exists, skipping download")
 
-    
+
 def main(args):
     download_files()
     # read in the .jsonl file
@@ -50,7 +52,7 @@ def main(args):
     def process_directory(directory):
         # find all .json files in all subdirectories
         filepaths = glob.glob(directory + '/**/*.json', recursive=True)
-        
+
         combined_data = []
         for filepath in filepaths:
             with open(filepath, 'r') as f:
@@ -72,14 +74,13 @@ def main(args):
 
         return combined_data
 
-
     # create single json files for train and test data
     train_data = process_directory('MATH/train')
     test_data = process_directory('MATH/test')
 
     # add train data and test data together to get all data
     train_data = train_data + test_data
-    
+
     # train_data_locations = [data['instruction'] for data in train_data]
 
     # Put the train and test data together
@@ -99,7 +100,7 @@ def main(args):
                 'instruction': data['Input'],
                 'input': "",
                 # 'output': re.sub(r'# Answer\n\n.*', r'\\boxed{' + re.escape(answer) + '}', data['Output']),
-                'output': re.sub(r'# Answer\n\n.*','', data['Output']),
+                'output': re.sub(r'# Answer\n\n.*', '', data['Output']),
                 # 'gt': answer
             }
             train_data[index] = modified_content
@@ -118,17 +119,18 @@ def main(args):
 
     # delete the intermediate files
     if args.delete_intermediate_files:
-        #remove the math folder
+        # remove the math folder
         os.remove('MATH_test_data.json')
         os.remove('MATH_train_data.json')
         subprocess.check_output(["rm", "-rf", "MATH"])
         os.remove(args.prm_file)
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('prm_file', nargs='?',help='location of the PRM file (defaults to current directory if only filename is given))', default = 'prm_updated.json'),
-    parser.add_argument('delete_intermediate_files', nargs='?',help='Delete intermediate files', default=True)
+    parser.add_argument('prm_file', nargs='?',
+                        help='location of the PRM file (defaults to current directory if only filename is given))',
+                        default='prm_updated.json'),
+    parser.add_argument('delete_intermediate_files', nargs='?', help='Delete intermediate files', default=True)
     args = parser.parse_args()
     main(args)
-
-

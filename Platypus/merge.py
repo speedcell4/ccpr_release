@@ -5,6 +5,7 @@ import torch
 import os
 import argparse
 
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base_model_name_or_path", type=str)
@@ -14,13 +15,14 @@ def get_args():
 
     return parser.parse_args()
 
+
 def main():
     args = get_args()
 
     if args.device == 'auto':
-        device_arg = { 'device_map': 'auto' }
+        device_arg = {'device_map': 'auto'}
     else:
-        device_arg = { 'device_map': { "": args.device} }
+        device_arg = {'device_map': {"": args.device}}
 
     print(f"Loading base model: {args.base_model_name_or_path}")
     base_model = AutoModelForCausalLM.from_pretrained(
@@ -41,5 +43,6 @@ def main():
     tokenizer.save_pretrained(f"{args.output_dir}")
     print(f"Model saved to {args.output_dir}")
 
-if __name__ == "__main__" :
+
+if __name__ == "__main__":
     main()

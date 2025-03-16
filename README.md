@@ -1,8 +1,11 @@
 ## 1. Introduction
 
-The code for our paper [Cross-lingual Contextualized Phase Retrieval](https://arxiv.org/abs/2403.16820). 
+The code for our paper [Cross-lingual Contextualized Phase Retrieval](https://arxiv.org/abs/2403.16820).
 
-> NOTE: Since this project contains many pipelines and each part is finished seperately during this long-term project, I have not test the whole project from scratch again, which is one thing in my TODO list. However, I think the code and scrips are helpful for people who are curious about how we implement our method. Please feel free to ask any questions about this project. My email address: li.huayang.lh6 [at] is.naist.jp
+> NOTE: Since this project contains many pipelines and each part is finished seperately during this long-term project, I
+> have not test the whole project from scratch again, which is one thing in my TODO list. However, I think the code and
+> scrips are helpful for people who are curious about how we implement our method. Please feel free to ask any questions
+> about this project. My email address: li.huayang.lh6 [at] is.naist.jp
 
 ## 2. TODO List
 
@@ -24,10 +27,12 @@ The code for our paper [Cross-lingual Contextualized Phase Retrieval](https://ar
 
 Below is the short explanation about four critical folders:
 
-1. `mytools`: This is a library containing commonly used functions in this project, such as reading and saving files. 
-2. `mgiza`: The code of GIZA++ for automatically inducing word alignment information from parallel data, which is important for collecting training data for CCPR.
+1. `mytools`: This is a library containing commonly used functions in this project, such as reading and saving files.
+2. `mgiza`: The code of GIZA++ for automatically inducing word alignment information from parallel data, which is
+   important for collecting training data for CCPR.
 3. `code`: The main code for our project, including the code for model, dataloader, indexing, searching, etc.
-4. `Platypus`: The code for LLM-based translator. In our paper, we use the CCPR model to augment the LLM-based translator by integrating the retrieved information to the LLM prompt.
+4. `Platypus`: The code for LLM-based translator. In our paper, we use the CCPR model to augment the LLM-based
+   translator by integrating the retrieved information to the LLM prompt.
 
 **!!!Please install those libraries according to their README files!!!**
 
@@ -55,17 +60,16 @@ done
 
 ### 4.3 Human-annotated Word Alignment (for Retrieval Evaluation)
 
-If you want to pre-process the data of human-annotated word alignment by youself, please download the raw data as follows:
+If you want to pre-process the data of human-annotated word alignment by youself, please download the raw data as
+follows:
 
 |        |                                     URL                                     | Re-name           |
 |--------|:---------------------------------------------------------------------------:|-------------------|
-| De->En | https://www-i6.informatik.rwth-aachen.de/goldAlignment/                     | ./align_data/DeEn |
-| Cs->En | https://lindat.mff.cuni.cz/repository/xmlui/handle/11234/1-1804             | ./align_data/CzEn |
+| De->En |           https://www-i6.informatik.rwth-aachen.de/goldAlignment/           | ./align_data/DeEn |
+| Cs->En |       https://lindat.mff.cuni.cz/repository/xmlui/handle/11234/1-1804       | ./align_data/CzEn |
 | Ro->En | http://web.eecs.umich.edu/~mihalcea/wpt05/data/Romanian-English.test.tar.gz | ./align_data/RoEn |
 
-
 ### 4.4 Newscrawl Monolingual Data (for MT Evaluation)
-
 
 ```bash
 # make sure you are under the root directory of the project
@@ -76,29 +80,43 @@ LANG=tr # an example
 wget https://data.statmt.org/news-crawl/${LANG}/news.20${YY}.${LANG}.shuffled.deduped.gz
 gzip -d news.20${YY}.${LANG}.shuffled.deduped.gz
 ```
+
 where `YY` is the number of year, e.g., `16`, and `LANG` is the language of the data, e.g, `tr`.
 
 ## 5. Ussage
 
 ### 5.1 Inference: Retrieval
 
-Before runing the following script, please remember to complete some configs in the script, e.g., path to python, and also make sure that you have installed the required libraries.
+Before runing the following script, please remember to complete some configs in the script, e.g., path to python, and
+also make sure that you have installed the required libraries.
 
-Please download the pre-processed data-bin from [this link], and put it to the root directory of this project, i.e., this folder.
+Please download the pre-processed data-bin from [this link], and put it to the root directory of this project, i.e.,
+this folder.
 
-You can download our pre-trained retriever through [this link](https://drive.google.com/file/d/1baMaqob6Q09kESNwG-7wtNyHhf7c0RaS/view?usp=share_link). If you want to train your own model, please refer to Section 5.3. In addition, please download the pre-processed [human-annotated data](https://drive.google.com/file/d/1xCa8xrQrx-O8lxM2Y0WNadUpqiLBPJ-w/view?usp=share_link) and the [indices of high-quality phrases selected by humans](https://drive.google.com/file/d/1qwYLtTSqGTKW-XD_AoHGla2XOoKmG6XZ/view?usp=share_link), and put them under the root directory of our project (this folder).
+You can download our pre-trained retriever
+through [this link](https://drive.google.com/file/d/1baMaqob6Q09kESNwG-7wtNyHhf7c0RaS/view?usp=share_link). If you want
+to train your own model, please refer to Section 5.3. In addition, please download the
+pre-processed [human-annotated data](https://drive.google.com/file/d/1xCa8xrQrx-O8lxM2Y0WNadUpqiLBPJ-w/view?usp=share_link)
+and
+the [indices of high-quality phrases selected by humans](https://drive.google.com/file/d/1qwYLtTSqGTKW-XD_AoHGla2XOoKmG6XZ/view?usp=share_link),
+and put them under the root directory of our project (this folder).
 
 ```bash
 cd code
 bash eval_retriever.sh
 ```
-If you want to pre-process your own data for retrieval, please check un-comment the code for data processing in `eval_retriever.sh`.
+
+If you want to pre-process your own data for retrieval, please check un-comment the code for data processing in
+`eval_retriever.sh`.
 
 ### 5.2 Inference: MT
 
-**Step-1**: Model training 
+**Step-1**: Model training
 
-Please save unzip the [pre-trained retriever](https://drive.google.com/file/d/1baMaqob6Q09kESNwG-7wtNyHhf7c0RaS/view?usp=share_link) and save the `ckpts` folder to the root path of this project (this folder). If you don't want to use the pre-trained model, please see the Section 5.3 to train your own model. 
+Please save unzip
+the [pre-trained retriever](https://drive.google.com/file/d/1baMaqob6Q09kESNwG-7wtNyHhf7c0RaS/view?usp=share_link) and
+save the `ckpts` folder to the root path of this project (this folder). If you don't want to use the pre-trained model,
+please see the Section 5.3 to train your own model.
 
 **Step-2**: Data Processing & Indexing & searching
 
@@ -111,7 +129,11 @@ bash index_and_search.sh
 
 **Step-4**: Instruction-tuning LLM for translation
 
-Please save unzip the [pre-trained LLM-based translator](https://drive.google.com/file/d/17JONPq1J7QfxR3C83b5l9mw-vZXDGmAl/view?usp=share_link) and save the `ckpts` folder to the root path of this project (this folder). If you don't want to use the pre-trained model, prepare training data and train it by yourself following the README of Platypus. For the training data, you need to make samples from WMT training dataset and retrieve cross-lingual phrases using the index built in previous step.
+Please save unzip
+the [pre-trained LLM-based translator](https://drive.google.com/file/d/17JONPq1J7QfxR3C83b5l9mw-vZXDGmAl/view?usp=share_link)
+and save the `ckpts` folder to the root path of this project (this folder). If you don't want to use the pre-trained
+model, prepare training data and train it by yourself following the README of Platypus. For the training data, you need
+to make samples from WMT training dataset and retrieve cross-lingual phrases using the index built in previous step.
 
 ```bash
 # skip this if you want to use the pre-trained translator
@@ -121,7 +143,9 @@ bash fine-tuning.sh
 
 **Step-5**: Decoding & Reprting Score
 
-You can use the folllowing data to prepare the prompts for translation. Note you can prepare the training data based on the following script.
+You can use the folllowing data to prepare the prompts for translation. Note you can prepare the training data based on
+the following script.
+
 ```bash
 cd Platypus
 bash prepare_alpaca_data_phrase_test_enxx.sh
@@ -134,11 +158,12 @@ cd Platypus
 bash inference_test.sh
 ```
 
-
 ### 5.3: CCPR Training
+
 Please check whether you need set project configs, e.g., project path, for each script.
 
 **Step-1**: get the word alignment information from parallel data using GIZA++
+
 ```bash
 cd mgiza/mgizapp/build
 bash install.sh
@@ -146,6 +171,7 @@ bash run.sh
 ```
 
 **Step-2**: run the following code to automatically induce the cross-lingual phrase pairs from the parallel data.
+
 ```bash
 cd code
 bash preprocess_data.sh

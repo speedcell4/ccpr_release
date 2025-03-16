@@ -28,20 +28,20 @@ except:  # noqa: E722
 
 
 def main(
-    load_8bit: bool = False,
-    base_model: str = "../llama30B_hf",
-    lora_weights: str = "",
-    prompt_template: str = "alpaca",
-    input_data_path: str = "",
-    save_data_path: str = "",
-    max_new_tokens: int = 256,
-    temperature: float = 0.15,
-    top_p: float = 0.95,
-    do_sample: bool = True,
-    field: str = "validation",
-    batch_size: int = 1,
-    enable_bf16: bool = False,
-    hf_cache_dir: str = ""
+        load_8bit: bool = False,
+        base_model: str = "../llama30B_hf",
+        lora_weights: str = "",
+        prompt_template: str = "alpaca",
+        input_data_path: str = "",
+        save_data_path: str = "",
+        max_new_tokens: int = 256,
+        temperature: float = 0.15,
+        top_p: float = 0.95,
+        do_sample: bool = True,
+        field: str = "validation",
+        batch_size: int = 1,
+        enable_bf16: bool = False,
+        hf_cache_dir: str = ""
 
 ):
     base_model = base_model or os.environ.get("BASE_MODEL", "")
@@ -76,7 +76,7 @@ def main(
         )
     else:
         model = LlamaForCausalLM.from_pretrained(
-            base_model, device_map={"": device}, low_cpu_mem_usage=True, 
+            base_model, device_map={"": device}, low_cpu_mem_usage=True,
             torch_dtype=torch.float16 if not enable_bf16 else torch.bfloat16,
             cache_dir=hf_cache_dir
         )
@@ -101,18 +101,21 @@ def main(
     for i in range(0, len(instructions), max_batch_size):
         instruction_batch = instructions[i:i + max_batch_size]
         input_batch = inputs[i:i + max_batch_size]
-        print(f"Processing batch {(i + max_batch_size-1) // max_batch_size} of {(len(instructions) + max_batch_size-1) // max_batch_size}...")
+        print(
+            f"Processing batch {(i + max_batch_size - 1) // max_batch_size} of {(len(instructions) + max_batch_size - 1) // max_batch_size}...")
         start_time = time.time()
-    
-        prompts = [prompter.generate_prompt(instruction, None) for instruction, input in zip(instruction_batch, input_batch)]
+
+        prompts = [prompter.generate_prompt(instruction, None) for instruction, input in
+                   zip(instruction_batch, input_batch)]
         batch_results = evaluate(prompter, prompts, model, tokenizer, max_new_tokens, temperature, top_p, do_sample)
-            
+
         results.extend(batch_results)
-        print(f"Finished processing batch {i // max_batch_size + 1}. Time taken: {time.time() - start_time:.2f} seconds")
+        print(
+            f"Finished processing batch {i // max_batch_size + 1}. Time taken: {time.time() - start_time:.2f} seconds")
 
     for i in range(len(results)):
         data[field][i]['hypothesis'] = results[i]
-    
+
     FileUtils.save_file(data, save_data_path)
 
 
@@ -122,8 +125,9 @@ def evaluate(prompter, prompts, model, tokenizer, max_new_tokens=256, temperatur
     for prompt in prompts:
         input_ids = tokenizer.encode(prompt, return_tensors="pt").to(device)
         generation_output = model.generate(input_ids=input_ids, num_beams=1, num_return_sequences=1,
-                                           max_new_tokens=max_new_tokens, temperature=temperature, top_p=top_p, do_sample=do_sample)
-        
+                                           max_new_tokens=max_new_tokens, temperature=temperature, top_p=top_p,
+                                           do_sample=do_sample)
+
         output = tokenizer.decode(generation_output[0], skip_special_tokens=True)
         resp = prompter.get_response(output)
         batch_outputs.append(resp)
@@ -134,4 +138,3 @@ def evaluate(prompter, prompts, model, tokenizer, max_new_tokens=256, temperatur
 if __name__ == "__main__":
     torch.cuda.empty_cache()
     fire.Fire(main)
-

@@ -2,12 +2,12 @@ import os
 import json
 import subprocess
 import os
+
 # The directory where the json files are stored
 # dir_path = 'original'
 output_file = 'scibench_formatted.json'
 
 import subprocess
-
 
 # Define the repository URL
 repo_url = "https://github.com/mandyyyyii/scibench.git"
@@ -29,7 +29,6 @@ else:
 
 json_files = [f for f in os.listdir(target_path) if f.endswith('.json')]
 
-
 new_data = []
 
 # Iterate over all the files
@@ -40,7 +39,7 @@ for json_file in json_files:
     with open(file_path, 'r') as f:
         # Load the data
         file_data = json.load(f)
-        
+
         # Transform the data
         for d in file_data:
             output = d.get('solution')
@@ -59,4 +58,3 @@ with open(output_file, 'w') as f:
 
 # Remove the cloned repository
 result_remove = subprocess.run(["rm", "-rf", repo_name])
-

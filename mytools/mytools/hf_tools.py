@@ -22,9 +22,10 @@ logging.basicConfig(
 MM_MODEL_TYPE_LIST = ["clip"]
 MODALITY_LIST = ['text', 'vision', 'all']
 MODE_LIST = ["cls", "avg"]
-CLS_POS_DICT= {
+CLS_POS_DICT = {
     "bert": 0, "gpt2": -1, "clip": {'text': -1, 'vision': 0}, "roberta": 0
 }
+
 
 class ExtractionConfig:
     is_mm = False
@@ -35,8 +36,10 @@ class ExtractionConfig:
 
     @staticmethod
     def show():
-        logging.info("ExtractionConfig Information\nis_mm: {}\tmodel_type: {}\tmodality: {}\tmode: {}\tlayer: {}".format(
-            ExtractionConfig.is_mm, ExtractionConfig.model_type, ExtractionConfig.modality, ExtractionConfig.mode, ExtractionConfig.layer))
+        logging.info(
+            "ExtractionConfig Information\nis_mm: {}\tmodel_type: {}\tmodality: {}\tmode: {}\tlayer: {}".format(
+                ExtractionConfig.is_mm, ExtractionConfig.model_type, ExtractionConfig.modality, ExtractionConfig.mode,
+                ExtractionConfig.layer))
 
 
 def download_wmt(ds_name, lang_pair, save_path, cache_dir="./hfds_cache"):
@@ -44,7 +47,7 @@ def download_wmt(ds_name, lang_pair, save_path, cache_dir="./hfds_cache"):
     data = load_dataset(ds_name, lang_pair, cache_dir=cache_dir)
     data.save_to_disk(save_path)
     FileUtils.check_dirs(save_path)
-    
+
     L1, L2 = lang_pair.split("-")
     for split in ['train', 'validation', 'test']:
         data_L1, data_L2 = [], []
@@ -67,10 +70,10 @@ def wmt_to_txt(hfds_path, save_dir, src_lang="de", tgt_lang="en", subsets="train
         for it in tqdm(ds[sub]):
             src_data.append(it['translation'][src_lang])
             tgt_data.append(it['translation'][tgt_lang])
-        FileUtils.save_to_disk(src_data, save_dir+"/{}.{}".format(sub, src_lang))
-        FileUtils.save_to_disk(tgt_data, save_dir+"/{}.{}".format(sub, tgt_lang))
+        FileUtils.save_to_disk(src_data, save_dir + "/{}.{}".format(sub, src_lang))
+        FileUtils.save_to_disk(tgt_data, save_dir + "/{}.{}".format(sub, tgt_lang))
 
-    
+
 def download_hf_model(model_name, save_dir):
     logging.info("Downloading {}...".format(model_name))
     tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir="./hf_cache")
@@ -93,6 +96,7 @@ def download_st_model(model_name, save_dir):
     model.save(save_dir)
     logging.info("Saved to {}...".format(save_dir))
 
+
 def extract_hidden_states(outputs, mask):
     if ExtractionConfig.mode == "cls":
         cls_pos = CLS_POS_DICT[ExtractionConfig.model_type]
@@ -107,7 +111,7 @@ def extract_hidden_states(outputs, mask):
                 cat_repr = torch.cat([
                     outputs.text_model_output.hidden_states[ExtractionConfig.layer][:, cls_pos['text']],
                     outputs.vision_model_output.hidden_states[ExtractionConfig.layer][:, cls_pos['vision']],
-                    ], dim=-1)
+                ], dim=-1)
             else:
                 raise NotImplementedError
     elif ExtractionConfig.mode == "avg":
@@ -115,14 +119,16 @@ def extract_hidden_states(outputs, mask):
             cat_repr = HFUtils.avg_hidden_states(outputs.hidden_states[ExtractionConfig.layer], mask=mask)
         else:
             if ExtractionConfig.modality == "text":
-                cat_repr = HFUtils.avg_hidden_states(outputs.text_model_output.hidden_states[ExtractionConfig.layer], mask=mask)
+                cat_repr = HFUtils.avg_hidden_states(outputs.text_model_output.hidden_states[ExtractionConfig.layer],
+                                                     mask=mask)
             elif ExtractionConfig.modality == "vision":
                 cat_repr = HFUtils.avg_hidden_states(outputs.vision_model_output.hidden_states[ExtractionConfig.layer])
             elif ExtractionConfig.modality == "all":
                 cat_repr = torch.cat([
-                    HFUtils.avg_hidden_states(outputs.text_model_output.hidden_states[ExtractionConfig.layer], mask=mask),
+                    HFUtils.avg_hidden_states(outputs.text_model_output.hidden_states[ExtractionConfig.layer],
+                                              mask=mask),
                     HFUtils.avg_hidden_states(outputs.vision_model_output.hidden_states[ExtractionConfig.layer]),
-                    ], dim=-1)
+                ], dim=-1)
             else:
                 raise NotImplementedError
     return cat_repr
@@ -141,7 +147,7 @@ def extract_repr_for_shard(model, tokenizer, shard_data, batch_size, device):
                 "text": [it[0] for it in raw_batch],
                 "images": [it[1] for it in raw_batch]
             }
-        
+
         outputs, mask = HFUtils.encode(model, tokenizer, batch, device, is_mm=ExtractionConfig.is_mm)
         cat_repr = extract_hidden_states(outputs, mask=mask)
         cur_repr_data = cat_repr.cpu().unbind(dim=0)
@@ -152,7 +158,8 @@ def extract_repr_for_shard(model, tokenizer, shard_data, batch_size, device):
     return repr_data
 
 
-def extract_transformers_repr(model_path, input_file_pattern, saveprefix, save_step=1000000, batch_size=256, mode="cls_12", loaded_data=None, enable_fp16=False):
+def extract_transformers_repr(model_path, input_file_pattern, saveprefix, save_step=1000000, batch_size=256,
+                              mode="cls_12", loaded_data=None, enable_fp16=False):
     if enable_fp16:
         model = AutoModel.from_pretrained(model_path).half().eval()
     else:
@@ -192,7 +199,7 @@ def extract_transformers_repr(model_path, input_file_pattern, saveprefix, save_s
     elif input_file_pattern is None and loaded_data is not None:
         data_iterator = []
         for i in range(0, len(loaded_data), save_step):
-            data_iterator.append(loaded_data[i:i+save_step])
+            data_iterator.append(loaded_data[i:i + save_step])
     for shard_data in data_iterator:
         shard_eid = shard_sid + len(shard_data)
         # if n_shard > 14:
@@ -205,17 +212,18 @@ def extract_transformers_repr(model_path, input_file_pattern, saveprefix, save_s
         if ExtractionConfig.is_mm:
             score_data = [it[1] for it in repr_data]
             repr_data = [it[0] for it in repr_data]
-            FileUtils.save_to_disk(score_data, saveprefix+".{}.repr.score".format(n_shard))
+            FileUtils.save_to_disk(score_data, saveprefix + ".{}.repr.score".format(n_shard))
         logging.info("Extractd ({}, {}) repr in shard {}".format(len(repr_data), repr_data[0].size(0), n_shard))
         # else:
         #     logging.info("Skip processed shard {}...".format(n_shard))
-        FileUtils.save_to_disk(repr_data, saveprefix+".{}.repr.dat".format(n_shard))
-        FileUtils.save_to_disk(repr_idx, saveprefix+".{}.repr.idx".format(n_shard))
+        FileUtils.save_to_disk(repr_data, saveprefix + ".{}.repr.dat".format(n_shard))
+        FileUtils.save_to_disk(repr_idx, saveprefix + ".{}.repr.idx".format(n_shard))
         n_shard += 1
         shard_sid = shard_eid
 
 
-def _extract_sentence_transformers_repr(proc_id, model_path, data, data_start_idx, saveprefix, batch_size=256, logging_step=1000000):
+def _extract_sentence_transformers_repr(proc_id, model_path, data, data_start_idx, saveprefix, batch_size=256,
+                                        logging_step=1000000):
     model = SentenceTransformer(model_path).eval()
     device = torch.device("cuda:{}".format(proc_id)) if torch.cuda.device_count() > proc_id else torch.device("cpu")
     if device == torch.device("cpu"):
@@ -226,40 +234,44 @@ def _extract_sentence_transformers_repr(proc_id, model_path, data, data_start_id
     num_data = len(data)
     with torch.no_grad():
         for i, sent in enumerate(data):
-            if (i+1)%logging_step == 0:
-                logging.info("Proc-{} has processed {}/{} ({:.2f}%) sentences".format(proc_id, i+1, num_data, (i+1)/num_data * 100))
+            if (i + 1) % logging_step == 0:
+                logging.info("Proc-{} has processed {}/{} ({:.2f}%) sentences".format(proc_id, i + 1, num_data,
+                                                                                      (i + 1) / num_data * 100))
             if len(batch_sents) >= batch_size:
-                batch_repr_data = model.encode(batch_sents, batch_size=batch_size, convert_to_tensor=True, device=device, show_progress_bar=False)
+                batch_repr_data = model.encode(batch_sents, batch_size=batch_size, convert_to_tensor=True,
+                                               device=device, show_progress_bar=False)
                 repr_data.extend(batch_repr_data.cpu().unbind(dim=0))
                 repr_idx.extend(batch_ids)
                 batch_sents, batch_ids = [], []
             batch_sents.append(sent)
             batch_ids.append(i + data_start_idx)
-    
+
     if batch_sents:
-        batch_repr_data = model.encode(batch_sents, batch_size=batch_size, convert_to_tensor=True, device=device, show_progress_bar=False)
+        batch_repr_data = model.encode(batch_sents, batch_size=batch_size, convert_to_tensor=True, device=device,
+                                       show_progress_bar=False)
         repr_data.extend(batch_repr_data.cpu().unbind(dim=0))
         repr_idx.extend(batch_ids)
 
-    FileUtils.save_to_disk(torch.stack(repr_data, dim=0), saveprefix+".{}.repr.dat".format(proc_id))
-    FileUtils.save_to_disk(repr_idx, saveprefix+".{}.repr.idx".format(proc_id))
+    FileUtils.save_to_disk(torch.stack(repr_data, dim=0), saveprefix + ".{}.repr.dat".format(proc_id))
+    FileUtils.save_to_disk(repr_idx, saveprefix + ".{}.repr.idx".format(proc_id))
 
 
-def extract_sentence_transformers_repr(model_path, input_file_path, saveprefix, batch_size=256, nproc=8, is_study_mode=False):
+def extract_sentence_transformers_repr(model_path, input_file_path, saveprefix, batch_size=256, nproc=8,
+                                       is_study_mode=False):
     data = FileUtils.load_file(input_file_path)
     if is_study_mode:
         data = data[:10000]
     data_shards = MPUtils.prepare_shards(data, nproc)
     args_list = []
     proc_data_start_id = 0
-    
+
     for proc_id in range(nproc):
         args_list.append([proc_id, model_path, data_shards[proc_id], proc_data_start_id, saveprefix, batch_size])
         proc_data_start_id += len(data_shards[proc_id])
 
     MPUtils.mp_func(_extract_sentence_transformers_repr, args_list)
 
-    
+
 def main():
     fire.Fire({
         "download_hf_model": download_hf_model,
@@ -268,6 +280,7 @@ def main():
         "download_wmt": download_wmt,
         "wmt_to_txt": wmt_to_txt
     })
+
 
 if __name__ == "__main__":
     main()

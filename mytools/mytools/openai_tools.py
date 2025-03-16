@@ -4,9 +4,9 @@ import os
 import logging
 import random
 from openai import OpenAI
+
 client = OpenAI(organization=os.getenv("OPENAI_ORGANIZATION"))
 random.seed(10086)
-
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,9 +16,11 @@ logging.basicConfig(
     ],
 )
 
+
 class OpenAIModel:
     GPT3_5 = "gpt-3.5-turbo"
     GPT4 = "gpt-4"
+
 
 def test():
     model = "gpt-3.5-turbo"
@@ -45,12 +47,13 @@ def call_chat(model, messages, temperature=1.0, top_p=1.0, n=1, extract_response
         response = response['choices'][0]['message']['content']
 
     return response
-    
+
 
 def main():
     fire.Fire({
         "test": test,
     })
+
 
 if __name__ == "__main__":
     main()

@@ -23,19 +23,20 @@ json_objects_updated = []
 for idx, row in df.iterrows():
     # Parse the choices string into a list
     choices = row['choices']
-    
+
     # Format the choices with alphabetic indicators
-    formatted_choices = '\n'.join([f'\n{chr(65+i)}: {choice}' if i == 0 else f'{chr(65+i)}: {choice}' for i, choice in enumerate(choices)])
-    
+    formatted_choices = '\n'.join(
+        [f'\n{chr(65 + i)}: {choice}' if i == 0 else f'{chr(65 + i)}: {choice}' for i, choice in enumerate(choices)])
+
     # Combine the question stem with the formatted choices
     instruction = row['question_stem'] + ': ' + formatted_choices
-    
+
     # Get the correct answer based on the answer key
     correct_answer = choices[ord(row['answerKey']) - 65]
-    
+
     # Format the output with a random answer prefix from the updated list, the correct answer key, and the correct answer
     output = 'The answer is ' + row['answerKey'] + ": " + correct_answer
-    
+
     # Create the JSON object and append it to the list
     json_objects_updated.append({
         "instruction": instruction,

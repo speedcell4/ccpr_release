@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 import re
 from glob import glob
 
+
 def prepare_deen_annotation_data(data_dir="../align_data/DeEn", save_dir="../align_data/DeEn/"):
     src_detokenzier = DataUtils.get_moses_detokenizer("de")
     tgt_detokenzier = DataUtils.get_moses_detokenizer("en")
@@ -31,7 +32,7 @@ def prepare_deen_annotation_data(data_dir="../align_data/DeEn", save_dir="../ali
                     u, v = it.split("-")
                 else:
                     u, v = it.split("p")
-                new_a.append("{}-{}".format(int(u)-1, int(v)-1))  
+                new_a.append("{}-{}".format(int(u) - 1, int(v) - 1))
             new_data.append(" {##} ".join([s.lower(), t.lower(), " ".join(new_a)]))
             detok_src.append(src_detokenzier.detokenize(s.split()))
             detok_tgt.append(tgt_detokenzier.detokenize(t.split()))
@@ -71,7 +72,7 @@ def prepare_czen_annotation_data(data_dir="../align_data/CzEn/merged_data/pcedt"
                                 u, v = it.split("-")
                             else:
                                 u, v = it.split("p")
-                            new_a.append("{}-{}".format(int(v)-1, int(u)-1))  
+                            new_a.append("{}-{}".format(int(v) - 1, int(u) - 1))
                     new_data.append(" {##} ".join([czech_text.lower(), english_text.lower(), " ".join(new_a)]))
                     detok_src.append(src_detokenzier.detokenize(czech_text.split(), unescape=True))
                     detok_tgt.append(tgt_detokenzier.detokenize(english_text.split(), unescape=True))
@@ -84,7 +85,6 @@ def prepare_czen_annotation_data(data_dir="../align_data/CzEn/merged_data/pcedt"
 
 
 def prepare_roen_annotation_data(data_dir="../align_data/RoEn/Romanian-English.test", save_dir="../align_data/RoEn/"):
-    
     def extract(text):
         pattern = r'<s snum=(\d+)> (.*?) </s>'
         match = re.search(pattern, text)
@@ -105,12 +105,12 @@ def prepare_roen_annotation_data(data_dir="../align_data/RoEn/Romanian-English.t
                 if snum_value in data_dict:
                     data_dict[snum_value]["ro"] = extracted_text
                 else:
-                    data_dict[snum_value] = {"ro": extracted_text, "en": "", "align": []} 
+                    data_dict[snum_value] = {"ro": extracted_text, "en": "", "align": []}
         elif file_type == "e":
             for line in FileUtils.load_file(file_path, 'txt'):
                 snum_value, extracted_text = extract(line)
                 if snum_value in data_dict:
-                    data_dict[snum_value]["en"] = extracted_text        
+                    data_dict[snum_value]["en"] = extracted_text
                 else:
                     data_dict[snum_value] = {"en": extracted_text, "ro": "", "align": []}
         elif file_type == "nonullalign":
@@ -122,7 +122,7 @@ def prepare_roen_annotation_data(data_dir="../align_data/RoEn/Romanian-English.t
                     data_dict[snum_value] = {"en": "", "ro": "", "align": ["{}-{}".format(a, b)]}
         else:
             logging.info("Skip {}".format(file_path))
-    
+
     for snum, val in data_dict.items():
         src, tgt, al = val['ro'], val['en'], val['align']
         new_a = []
@@ -131,7 +131,7 @@ def prepare_roen_annotation_data(data_dir="../align_data/RoEn/Romanian-English.t
                 u, v = it.split("-")
             else:
                 u, v = it.split("p")
-            new_a.append("{}-{}".format(int(u)-1, int(v)-1))  
+            new_a.append("{}-{}".format(int(u) - 1, int(v) - 1))
         if not new_a:
             continue
         new_data.append(" {##} ".join([src.lower(), tgt.lower(), " ".join(new_a)]))
@@ -155,7 +155,7 @@ def collate_fn(batch_data, encode_tgt=True, pad_id=0):
         phrase_end_ids.extend(cur_end_ids)
         corpus_ids.extend([ex["corpus_id"]] * len(cur_start_ids))
         phrase_text_list.extend(ex['ref_phrase'] if encode_tgt else ex['src_phrase'])
-    
+
     input_ids, attention_mask = TorchUtils.batchfy([torch.LongTensor(it) for it in input_ids], pad_id)
     phrase_batch_ids = torch.LongTensor(phrase_batch_ids)
     phrase_start_ids = torch.LongTensor(phrase_start_ids)
@@ -174,24 +174,28 @@ def collate_fn(batch_data, encode_tgt=True, pad_id=0):
 def encode_step(model, batch, model_type="ours_labse"):
     with torch.no_grad():
         if model_type.startswith("ours"):
-            out = model.encoder_model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'], output_hidden_states=True)
+            out = model.encoder_model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'],
+                                      output_hidden_states=True)
             hidden_states = out.hidden_states[-1]
-            phrase_batch_ids, phrase_start_ids, phrase_end_ids = batch['phrase_batch_ids'], batch['phrase_start_ids'], batch['phrase_end_ids']
+            phrase_batch_ids, phrase_start_ids, phrase_end_ids = batch['phrase_batch_ids'], batch['phrase_start_ids'], \
+            batch['phrase_end_ids']
             phrase_hidden_states_start = hidden_states[phrase_batch_ids, phrase_start_ids]
             phrase_hidden_states_end = hidden_states[phrase_batch_ids, phrase_end_ids]
-            phrase_hidden_states = model.linear(torch.cat([phrase_hidden_states_start, phrase_hidden_states_end], dim=-1))
+            phrase_hidden_states = model.linear(
+                torch.cat([phrase_hidden_states_start, phrase_hidden_states_end], dim=-1))
         else:
             out = model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'], output_hidden_states=True)
             hidden_states = out.hidden_states[-1]
-            phrase_batch_ids, phrase_start_ids, phrase_end_ids = batch['phrase_batch_ids'], batch['phrase_start_ids'], batch['phrase_end_ids']
+            phrase_batch_ids, phrase_start_ids, phrase_end_ids = batch['phrase_batch_ids'], batch['phrase_start_ids'], \
+            batch['phrase_end_ids']
             phrase_hidden_states_start = hidden_states[phrase_batch_ids, phrase_start_ids]
             phrase_hidden_states_end = hidden_states[phrase_batch_ids, phrase_end_ids]
             phrase_hidden_states = torch.cat([phrase_hidden_states_start, phrase_hidden_states_end], dim=-1)
         return phrase_hidden_states
 
 
-
-def encode_dataset(model, ds, save_prefix, model_type="ours_labse", batch_size=256, indices=None, phrase_start_idx=0, encode_tgt=True, pad_id=0, device=torch.device("cuda")):
+def encode_dataset(model, ds, save_prefix, model_type="ours_labse", batch_size=256, indices=None, phrase_start_idx=0,
+                   encode_tgt=True, pad_id=0, device=torch.device("cuda")):
     if indices is None:
         indices = list(range(len(ds)))
     num_indices = len(indices)
@@ -201,7 +205,7 @@ def encode_dataset(model, ds, save_prefix, model_type="ours_labse", batch_size=2
     for i in indices:
         ex = ds[i]
         batch_data.append(ex)
-        if len(batch_data) >= batch_size or (i+1) == num_indices:
+        if len(batch_data) >= batch_size or (i + 1) == num_indices:
             batch = collate_fn(batch_data, encode_tgt, pad_id)
             cur_corpus_ids = batch.pop("corpus_ids")
             phrase_num += len(cur_corpus_ids)
@@ -213,7 +217,7 @@ def encode_dataset(model, ds, save_prefix, model_type="ours_labse", batch_size=2
 
             hidden_states_list.append(phrase_hidden_states.cpu())
             batch_data = []
-    
+
     FileUtils.save_file(torch.cat(hidden_states_list, dim=0), save_prefix + ".repr.dat")
     FileUtils.save_file(list(range(phrase_start_idx, phrase_start_idx + phrase_num)), save_prefix + ".repr.idx")
     FileUtils.save_file(corpus_ids, save_prefix + ".repr.sid")
@@ -226,7 +230,7 @@ def encode_data(eval_config_path, **kwargs):
     args = FileUtils.load_file(eval_config_path)
     if kwargs:
         args = override(args, kwargs)
-    FileUtils.check_dirs(args['save_dir'] )
+    FileUtils.check_dirs(args['save_dir'])
     train_databin_prefix = args['train_databin_prefix']
     eval_databin_prefix = args['eval_databin_prefix']
     src_lang = args['eval_src_lang'].split(",")
@@ -240,7 +244,7 @@ def encode_data(eval_config_path, **kwargs):
         model = get_model_class(args['model_name']).from_pretrained(args)
     else:
         raise NotImplementedError
-    
+
     model = model.eval().to(device)
 
     if model_type.endswith("labse") or model_type.endswith("mbert"):
@@ -258,7 +262,10 @@ def encode_data(eval_config_path, **kwargs):
     num_train_ds = len(train_ds)
     logging.info("{} examples in the training datastore".format(num_train_ds))
     phrase_start_idx, src_shard_id, tgt_shard_id = 0, 0, 0
-    phrase_start_idx = encode_dataset(model, train_ds, args['save_dir'] + "/data.tgt.{}".format(tgt_shard_id), model_type=args['model_type'], batch_size=batch_size, phrase_start_idx=phrase_start_idx, encode_tgt=True, pad_id=pad_token_id, device=device)
+    phrase_start_idx = encode_dataset(model, train_ds, args['save_dir'] + "/data.tgt.{}".format(tgt_shard_id),
+                                      model_type=args['model_type'], batch_size=batch_size,
+                                      phrase_start_idx=phrase_start_idx, encode_tgt=True, pad_id=pad_token_id,
+                                      device=device)
     tgt_shard_id += 1
 
     for sl, tl in zip(src_lang, tgt_lang):
@@ -271,17 +278,24 @@ def encode_data(eval_config_path, **kwargs):
         logging.info("{} examples in the evaluation datastore".format(num_eval_ds))
 
         prev_phrase_start_idx = phrase_start_idx
-        phrase_start_idx = encode_dataset(model, eval_ds, args['save_dir'] + "/data.tgt.{}".format(tgt_shard_id), model_type=args['model_type'], batch_size=batch_size, phrase_start_idx=phrase_start_idx, encode_tgt=True, pad_id=pad_token_id, device=device)
+        phrase_start_idx = encode_dataset(model, eval_ds, args['save_dir'] + "/data.tgt.{}".format(tgt_shard_id),
+                                          model_type=args['model_type'], batch_size=batch_size,
+                                          phrase_start_idx=phrase_start_idx, encode_tgt=True, pad_id=pad_token_id,
+                                          device=device)
 
-        src_phrase_start_idx = encode_dataset(model, eval_ds, args['save_dir'] + "/data.src.{}".format(sl), model_type=args['model_type'], batch_size=batch_size, phrase_start_idx=0, encode_tgt=False, pad_id=pad_token_id, device=device)
+        src_phrase_start_idx = encode_dataset(model, eval_ds, args['save_dir'] + "/data.src.{}".format(sl),
+                                              model_type=args['model_type'], batch_size=batch_size, phrase_start_idx=0,
+                                              encode_tgt=False, pad_id=pad_token_id, device=device)
 
-        golden_mapping = [(a, b) for a, b in zip(range(0, src_phrase_start_idx), range(prev_phrase_start_idx, phrase_start_idx))]
-        FileUtils.save_file(golden_mapping,  args['save_dir'] + "/data.src.{}.golden.map".format(sl))
+        golden_mapping = [(a, b) for a, b in
+                          zip(range(0, src_phrase_start_idx), range(prev_phrase_start_idx, phrase_start_idx))]
+        FileUtils.save_file(golden_mapping, args['save_dir'] + "/data.src.{}.golden.map".format(sl))
         src_shard_id += 1
         tgt_shard_id += 1
 
 
-def retrieval_accuracy(retrieval_out_path, golden_mapping_path, topk=5, query_data_path=None, datastore_prefix=None, debug_file_path=None, human_indices_path=None):
+def retrieval_accuracy(retrieval_out_path, golden_mapping_path, topk=5, query_data_path=None, datastore_prefix=None,
+                       debug_file_path=None, human_indices_path=None):
     if datastore_prefix is not None:
         n_shrads = len(list(glob(datastore_prefix + "*.repr.txt")))
         phrase_text_list = FileUtils.load_shards(datastore_prefix, "repr.txt", n_shrads)
@@ -309,7 +323,8 @@ def retrieval_accuracy(retrieval_out_path, golden_mapping_path, topk=5, query_da
         if phrase_text_list and query_text_list:
             candidates_text = [phrase_text_list[si] for si in candidates]
             query_text = query_text_list[qid]
-            debug_data.append({"query": query_text, "retrieval": candidates_text, "golden": phrase_text_list[golden_mapping[qid]]})
+            debug_data.append(
+                {"query": query_text, "retrieval": candidates_text, "golden": phrase_text_list[golden_mapping[qid]]})
         if golden_mapping[qid] in candidates:
             matched += 1
     if debug_file_path is not None:

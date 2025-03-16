@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 
 def call_tesseract(img_prefix, lang, save_path):
-    fnames =  sorted(list(glob(img_prefix + "*.jpg")))
+    fnames = sorted(list(glob(img_prefix + "*.jpg")))
     data = []
     for img_path in tqdm(fnames):
         text = pytesseract.image_to_string(Image.open(img_path), lang=lang)

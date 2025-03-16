@@ -84,7 +84,7 @@ def main():
     while cont:
         sent_id += 1
         write_one = False
-# Now try to read more sentences
+        # Now try to read more sentences
         i = 0
         cont = False
         while i < len(files):

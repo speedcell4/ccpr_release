@@ -8,7 +8,6 @@ import numpy as np
 from typing import Any, Dict, List, Optional, Tuple, Union
 from torch.nn import CrossEntropyLoss, LayerNorm
 
-
 model_registry = {}
 
 
@@ -22,6 +21,7 @@ def create_model(model_name: str, model_args: dict):
     model_name = model_name if model_name.endswith("_model") else model_name.strip() + "_model"
     model = model_registry[model_name](model_args)
     return model
+
 
 def get_model_class(model_name: str):
     model_name = model_name if model_name.endswith("_model") else model_name.strip() + "_model"
@@ -82,7 +82,7 @@ class RetrievalModel(nn.Module):
         logging.info("Enable repr normalization: {}".format(self.norm_repr))
         self.args = args
         self.criterion = nn.CrossEntropyLoss()
-        
+
     @classmethod
     def from_pretrained(cls, args):
         logging.info("Initializing model from pre-trained")
@@ -111,28 +111,40 @@ class RetrievalModel(nn.Module):
         # self.encoder_model.save_pretrained(save_dir)
         state_dict = self.state_dict()
         FileUtils.save_to_disk(state_dict, save_dir + "pytorch_model.bin", 'pt')
-    
+
     def forward(self, batch):
         loss = self.forward_simplified_with_tokenization(batch)
         return loss
 
     def forward_simplified_with_tokenization(self, batch):
-        src_out = self.encoder_model(input_ids=batch['src_input_ids'], attention_mask=batch['src_attention_mask'], output_hidden_states=True)
-        ref_out = self.encoder_model(input_ids=batch['ref_input_ids'], attention_mask=batch['ref_attention_mask'], output_hidden_states=True)
+        src_out = self.encoder_model(input_ids=batch['src_input_ids'], attention_mask=batch['src_attention_mask'],
+                                     output_hidden_states=True)
+        ref_out = self.encoder_model(input_ids=batch['ref_input_ids'], attention_mask=batch['ref_attention_mask'],
+                                     output_hidden_states=True)
         src_hidden_states = src_out.hidden_states[self.repr_layer_index]
         ref_hidden_states = ref_out.hidden_states[self.repr_layer_index]
-        src_phrase_hidden_states_start = src_hidden_states[batch['src_phrase_align_data'][0], batch['src_phrase_align_data'][1]]
-        src_phrase_hidden_states_end = src_hidden_states[batch['src_phrase_align_data'][0], batch['src_phrase_align_data'][2]]
-        src_phrase_hidden_states = self.linear(torch.cat([src_phrase_hidden_states_start, src_phrase_hidden_states_end], dim=-1))
+        src_phrase_hidden_states_start = src_hidden_states[
+            batch['src_phrase_align_data'][0], batch['src_phrase_align_data'][1]]
+        src_phrase_hidden_states_end = src_hidden_states[
+            batch['src_phrase_align_data'][0], batch['src_phrase_align_data'][2]]
+        src_phrase_hidden_states = self.linear(
+            torch.cat([src_phrase_hidden_states_start, src_phrase_hidden_states_end], dim=-1))
 
-        ref_pharse_hidden_states_start = ref_hidden_states[batch['ref_phrase_align_data'][0], batch['ref_phrase_align_data'][1]]
-        ref_pharse_hidden_states_end = ref_hidden_states[batch['ref_phrase_align_data'][0], batch['ref_phrase_align_data'][2]]
-        ref_phrase_hidden_states = self.linear(torch.cat([ref_pharse_hidden_states_start, ref_pharse_hidden_states_end], dim=-1))
+        ref_pharse_hidden_states_start = ref_hidden_states[
+            batch['ref_phrase_align_data'][0], batch['ref_phrase_align_data'][1]]
+        ref_pharse_hidden_states_end = ref_hidden_states[
+            batch['ref_phrase_align_data'][0], batch['ref_phrase_align_data'][2]]
+        ref_phrase_hidden_states = self.linear(
+            torch.cat([ref_pharse_hidden_states_start, ref_pharse_hidden_states_end], dim=-1))
 
         s2t_num, t2s_num = batch['s2t_align_labels'].size(0), batch['t2s_align_labels'].size(0)
-        s2t_align_logits = torch.matmul(src_phrase_hidden_states[:s2t_num], torch.cat([ref_phrase_hidden_states, src_phrase_hidden_states[s2t_num:]], dim=0).transpose(0, 1))
-        t2s_align_logits = torch.matmul(ref_phrase_hidden_states[:t2s_num], torch.cat([src_phrase_hidden_states, ref_phrase_hidden_states[t2s_num:]], dim=0).transpose(0, 1))
-        
+        s2t_align_logits = torch.matmul(src_phrase_hidden_states[:s2t_num],
+                                        torch.cat([ref_phrase_hidden_states, src_phrase_hidden_states[s2t_num:]],
+                                                  dim=0).transpose(0, 1))
+        t2s_align_logits = torch.matmul(ref_phrase_hidden_states[:t2s_num],
+                                        torch.cat([src_phrase_hidden_states, ref_phrase_hidden_states[t2s_num:]],
+                                                  dim=0).transpose(0, 1))
+
         s2t_loss = self.criterion(s2t_align_logits, batch['s2t_align_labels'])
         t2s_loss = self.criterion(t2s_align_logits, batch['t2s_align_labels'])
 
@@ -144,8 +156,8 @@ class RetrievalModel(nn.Module):
             batch['ref_phrase_tkz_data'][2], batch['ref_phrase_tkz_labels'])
         return s2t_loss + t2s_loss + self.tkz_loss_weight * (ref_tkz_loss + src_tkz_loss)
 
-
-    def step_tokenize_loss(self, hidden_states, phrase_tkz_batch_ids, phrase_tkz_start_ids, phrase_tkz_end_ids, phrase_tkz_labels):
+    def step_tokenize_loss(self, hidden_states, phrase_tkz_batch_ids, phrase_tkz_start_ids, phrase_tkz_end_ids,
+                           phrase_tkz_labels):
         hidden_states_start = hidden_states[phrase_tkz_batch_ids, phrase_tkz_start_ids]
         hidden_states_end = hidden_states[phrase_tkz_batch_ids, phrase_tkz_end_ids]
         logits = self.tokenizer_head(torch.cat([hidden_states_start, hidden_states_end], dim=-1))
@@ -153,22 +165,25 @@ class RetrievalModel(nn.Module):
         return loss
 
     def step_alignment_loss(self, src_input_ids, src_attention_mask,
-                  src_phrase_batch_ids, src_phrase_start_ids, src_phrase_end_ids,
-                  s2t_input_ids, s2t_attention_mask, 
-                  s2t_phrase_batch_ids, s2t_phrase_start_ids, s2t_phrase_end_ids, 
-                  ref_input_ids, ref_attention_mask, s2t_alignment_labels, 
-                  src_out=None, ref_out=None, return_hidden_states=False):
+                            src_phrase_batch_ids, src_phrase_start_ids, src_phrase_end_ids,
+                            s2t_input_ids, s2t_attention_mask,
+                            s2t_phrase_batch_ids, s2t_phrase_start_ids, s2t_phrase_end_ids,
+                            ref_input_ids, ref_attention_mask, s2t_alignment_labels,
+                            src_out=None, ref_out=None, return_hidden_states=False):
 
         hidden_states = {"src_out": None, "ref_out": None}
         if src_out is None:
-            src_out = self.encoder_model(input_ids=src_input_ids, attention_mask=src_attention_mask, output_hidden_states=True)
+            src_out = self.encoder_model(input_ids=src_input_ids, attention_mask=src_attention_mask,
+                                         output_hidden_states=True)
             hidden_states['src_out'] = src_out
         elif return_hidden_states:
             hidden_states['src_out'] = src_out
-        s2t_out = self.encoder_model(input_ids=s2t_input_ids, attention_mask=s2t_attention_mask, output_hidden_states=True)
+        s2t_out = self.encoder_model(input_ids=s2t_input_ids, attention_mask=s2t_attention_mask,
+                                     output_hidden_states=True)
         if self.enable_sent_loss or self.enable_sent_loss:
             if ref_out is None:
-                ref_out = self.encoder_model(input_ids=ref_input_ids, attention_mask=ref_attention_mask, output_hidden_states=True)
+                ref_out = self.encoder_model(input_ids=ref_input_ids, attention_mask=ref_attention_mask,
+                                             output_hidden_states=True)
                 hidden_states['ref_out'] = ref_out
             elif return_hidden_states:
                 hidden_states['ref_out'] = ref_out
@@ -176,12 +191,14 @@ class RetrievalModel(nn.Module):
         s2t_hidden_sattes = s2t_out.hidden_states[self.repr_layer_index]
         src_phrase_hidden_states_start = src_hidden_states[src_phrase_batch_ids, src_phrase_start_ids]
         src_phrase_hidden_states_end = src_hidden_states[src_phrase_batch_ids, src_phrase_end_ids]
-        src_phrase_hidden_states = self.linear(torch.cat([src_phrase_hidden_states_start,src_phrase_hidden_states_end], dim=-1))
+        src_phrase_hidden_states = self.linear(
+            torch.cat([src_phrase_hidden_states_start, src_phrase_hidden_states_end], dim=-1))
 
         s2t_pharse_hidden_states_start = s2t_hidden_sattes[s2t_phrase_batch_ids, s2t_phrase_start_ids]
         s2t_pharse_hidden_states_end = s2t_hidden_sattes[s2t_phrase_batch_ids, s2t_phrase_end_ids]
-        s2t_phrase_hidden_states = self.linear(torch.cat([s2t_pharse_hidden_states_start,s2t_pharse_hidden_states_end], dim=-1))
-        
+        s2t_phrase_hidden_states = self.linear(
+            torch.cat([s2t_pharse_hidden_states_start, s2t_pharse_hidden_states_end], dim=-1))
+
         if self.norm_repr:
             src_phrase_hidden_states_norm = torch.norm(src_phrase_hidden_states, dim=-1, keepdim=True)
             s2t_phrase_hidden_states_norm = torch.norm(s2t_phrase_hidden_states, dim=-1, keepdim=True)
@@ -199,51 +216,59 @@ class RetrievalModel(nn.Module):
             prob_sent = - F.log_softmax(logits_sent, dim=-1)
             loss_sent = torch.diag(prob_sent).sum() / batch_size
             loss = loss + self.sent_loss_weight * loss_sent
-        
+
         if self.enable_tok_loss:
-            fw_prob = - F.log_softmax(torch.matmul(src_out.pooler_output, self.encoder_model.embeddings.word_embeddings.weight.t()), dim=-1)
-            loss_tok_fw = torch.sum(torch.gather(fw_prob, -1, ref_input_ids) * ref_attention_mask) / torch.sum(ref_attention_mask)
+            fw_prob = - F.log_softmax(
+                torch.matmul(src_out.pooler_output, self.encoder_model.embeddings.word_embeddings.weight.t()), dim=-1)
+            loss_tok_fw = torch.sum(torch.gather(fw_prob, -1, ref_input_ids) * ref_attention_mask) / torch.sum(
+                ref_attention_mask)
             loss = loss + self.tok_loss_weight * loss_tok_fw
 
             if self.enable_cycle_loss:
-                loss_cycle_src = torch.sum(torch.gather(fw_prob, -1, src_input_ids) * src_attention_mask) / torch.sum(src_attention_mask)
+                loss_cycle_src = torch.sum(torch.gather(fw_prob, -1, src_input_ids) * src_attention_mask) / torch.sum(
+                    src_attention_mask)
                 loss = loss + self.cycle_loss_weight * loss_cycle_src
         if return_hidden_states:
             return loss, hidden_states
         else:
             return loss
-    
+
     def encode_batch(self, batch, do_tokenize=False, verbose=False, **kwargs):
         with torch.no_grad():
-            out = self.encoder_model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'], output_hidden_states=True)
+            out = self.encoder_model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'],
+                                     output_hidden_states=True)
             hidden_states = out.hidden_states[self.repr_layer_index]
             if do_tokenize:
                 phrase_batch_ids, phrase_start_ids, phrase_end_ids = self.tokenize(batch, hidden_states, **kwargs)
             else:
-                phrase_batch_ids, phrase_start_ids, phrase_end_ids = batch['phrase_batch_ids'], batch['phrase_start_ids'], batch['phrase_end_ids']
+                phrase_batch_ids, phrase_start_ids, phrase_end_ids = batch['phrase_batch_ids'], batch[
+                    'phrase_start_ids'], batch['phrase_end_ids']
             phrase_hidden_states_start = hidden_states[phrase_batch_ids, phrase_start_ids]
             phrase_hidden_states_end = hidden_states[phrase_batch_ids, phrase_end_ids]
-            phrase_hidden_states = self.linear(torch.cat([phrase_hidden_states_start, phrase_hidden_states_end], dim=-1))
+            phrase_hidden_states = self.linear(
+                torch.cat([phrase_hidden_states_start, phrase_hidden_states_end], dim=-1))
 
             if self.norm_repr:
                 phrase_hidden_states_norm = torch.norm(phrase_hidden_states, dim=-1, keepdim=True)
                 phrase_hidden_states = phrase_hidden_states / phrase_hidden_states_norm
         if verbose:
-            return phrase_hidden_states, {"phrase_batch_ids": phrase_batch_ids, "phrase_start_ids": phrase_start_ids, "phrase_end_ids": phrase_end_ids}
+            return phrase_hidden_states, {"phrase_batch_ids": phrase_batch_ids, "phrase_start_ids": phrase_start_ids,
+                                          "phrase_end_ids": phrase_end_ids}
         else:
             return phrase_hidden_states
 
     def _generate_combinations(self, sequence):
         # Generating combinations for the sequence
         seq_len = len(sequence)
-        seq_indices = torch.arange(1, seq_len-1, device=sequence.device)
+        seq_indices = torch.arange(1, seq_len - 1, device=sequence.device)
         # comb = torch.combinations(sequence, r=2, with_replacement=True)
         indices_comb = torch.combinations(seq_indices, r=2, with_replacement=True)
         return indices_comb
 
     def tokenize(self, batch, hidden_states=None, max_phrase_len=6, threshold=0.5):
         if hidden_states is None:
-            out = self.encoder_model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'], output_hidden_states=True)
+            out = self.encoder_model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'],
+                                     output_hidden_states=True)
             hidden_states = out.hidden_states[self.repr_layer_index]
         phrase_batch_ids, phrase_start_ids, phrase_end_ids = None, None, None
         batch_size = hidden_states.size(0)
@@ -267,7 +292,7 @@ class RetrievalModel(nn.Module):
         phrase_end_ids = phrase_end_ids[overlength_indicator]
         hidden_states_start = hidden_states[phrase_batch_ids, phrase_start_ids]
         hidden_states_end = hidden_states[phrase_batch_ids, phrase_end_ids]
-        tokenization_logits = self.tokenizer_head(torch.cat([hidden_states_start,hidden_states_end], dim=-1))
+        tokenization_logits = self.tokenizer_head(torch.cat([hidden_states_start, hidden_states_end], dim=-1))
         phrase_score = F.softmax(tokenization_logits, dim=-1)[:, 1]
         phrase_indicator = phrase_score > threshold
         return phrase_batch_ids[phrase_indicator], phrase_start_ids[phrase_indicator], phrase_end_ids[phrase_indicator]

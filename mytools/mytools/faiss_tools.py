@@ -13,8 +13,8 @@ import faiss
 from faiss.contrib.ondisk import merge_ondisk
 import numpy as np
 import random
-random.seed(10086)
 
+random.seed(10086)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,7 +25,8 @@ logging.basicConfig(
 )
 
 
-def kmeans(dataprefix, index_dir, num_data_shards, kmeans_on_gpu=False, num_train=200000, num_centroids=4096, normalize=False, log=False):
+def kmeans(dataprefix, index_dir, num_data_shards, kmeans_on_gpu=False, num_train=200000, num_centroids=4096,
+           normalize=False, log=False):
     assert index_dir
     FileUtils.check_dirs(index_dir)
     niter = 20
@@ -68,11 +69,14 @@ def group_by_cluster(dataprefix, centroids, num_data_shards, normalize=False, lo
         D, CI = kmeans_index.search(x, 1)
         for i, c in zip(xid, CI):
             grouped_xid[c[0]].append(i)
-    logging.info("{} cases are classified into {} groups".format(sum([len(it) for it in grouped_xid]), len(grouped_xid)))
+    logging.info(
+        "{} cases are classified into {} groups".format(sum([len(it) for it in grouped_xid]), len(grouped_xid)))
     torch.save(grouped_xid, "{}.group.idx".format(dataprefix))
 
 
-def train_index(dataprefix, index_dir, num_data_shards=-1, index_type="IVF1024,PQ64", index_on_gpu=False, num_train=200000, store_centroids=False, normalize=False, log=False, enable_memmap=False, overwrite_memmap=False, cache_dir=""):
+def train_index(dataprefix, index_dir, num_data_shards=-1, index_type="IVF1024,PQ64", index_on_gpu=False,
+                num_train=200000, store_centroids=False, normalize=False, log=False, enable_memmap=False,
+                overwrite_memmap=False, cache_dir=""):
     """
     There is no need to train for L2 and IP search. In other words, only quantization-based
     index needs to be trained before searching.
@@ -145,7 +149,9 @@ def train_index(dataprefix, index_dir, num_data_shards=-1, index_type="IVF1024,P
         torch.save(torch.from_numpy(centroids), clst_path)
 
 
-def build_index(dataprefix, index_dir, num_data_shards=-1, index_type="IVF1024,PQ64", index_on_gpu=False, num_index_shards=1, normalize=False, log=False, debug=False, enable_memmap=False, overwrite_memmap=False, cache_dir="", index_name_tag=""):
+def build_index(dataprefix, index_dir, num_data_shards=-1, index_type="IVF1024,PQ64", index_on_gpu=False,
+                num_index_shards=1, normalize=False, log=False, debug=False, enable_memmap=False,
+                overwrite_memmap=False, cache_dir="", index_name_tag=""):
     assert index_dir
     if isinstance(index_type, str):
         prefix = ("-".join(index_type.split(","))).lower()
@@ -216,18 +222,19 @@ def build_index(dataprefix, index_dir, num_data_shards=-1, index_type="IVF1024,P
         logging.info("Initializing FlatIP...")
         index = faiss.IndexIDMap(faiss.IndexFlatIP(d))
     else:
-        empty_index_file = path.join(index_dir,  prefix + ".trained.index")
+        empty_index_file = path.join(index_dir, prefix + ".trained.index")
         logging.info("Loading index file from: {}".format(empty_index_file))
         index = faiss.read_index(empty_index_file)
 
     block_fnames = []
     for index_shard_idx in range(num_index_shards):
-        s, e = index_shard_idx * index_shard_size, (index_shard_idx+1) * index_shard_size
+        s, e = index_shard_idx * index_shard_size, (index_shard_idx + 1) * index_shard_size
         sub_xb, sub_ids = xb[s:e], xids[s:e]
         index.add_with_ids(sub_xb, sub_ids)
         if num_index_shards > 1:
             if index_name_tag:
-                shard_file = path.join(index_dir, prefix + ".{}".format(index_name_tag) + ".shard.{}.index".format(index_shard_idx))
+                shard_file = path.join(index_dir, prefix + ".{}".format(index_name_tag) + ".shard.{}.index".format(
+                    index_shard_idx))
             else:
                 shard_file = path.join(index_dir, prefix + ".shard.{}.index".format(index_shard_idx))
         else:
@@ -251,14 +258,16 @@ def build_index(dataprefix, index_dir, num_data_shards=-1, index_type="IVF1024,P
         index = faiss.read_index(empty_index_file)
         logging.info("Merging index")
         if index_name_tag:
-            merge_ondisk(index, block_fnames, path.join(index_dir, prefix + ".{}".format(index_name_tag) + '.merged.ivfdata'))
+            merge_ondisk(index, block_fnames,
+                         path.join(index_dir, prefix + ".{}".format(index_name_tag) + '.merged.ivfdata'))
             faiss.write_index(index, path.join(index_dir, prefix + ".{}".format(index_name_tag) + '.merged.index'))
         else:
             merge_ondisk(index, block_fnames, path.join(index_dir, prefix + '.merged.ivfdata'))
-            faiss.write_index(index, path.join(index_dir, prefix + '.merged.index'))            
+            faiss.write_index(index, path.join(index_dir, prefix + '.merged.index'))
 
 
-def search_single_file(queryprefix, index_path, savepath, index_on_gpu=False, search_batch_size=64, search_topk=32, nprobe=64, normalize=False, log=False, gpu_num=1):
+def search_single_file(queryprefix, index_path, savepath, index_on_gpu=False, search_batch_size=64, search_topk=32,
+                       nprobe=64, normalize=False, log=False, gpu_num=1):
     FileUtils.check_dirs(FileUtils.get_dir(savepath))
     logging.info("Loading index...")
     idx_file = "{}.repr.idx".format(queryprefix)
@@ -293,7 +302,8 @@ def search_single_file(queryprefix, index_path, savepath, index_on_gpu=False, se
     FileUtils.save_to_disk(results, savepath, 'pt')
 
 
-def search_files(queryprefix_list, index_path, save_suffix, index_on_gpu=False, search_batch_size=64, search_topk=32, nprobe=64, normalize=False, log=False, gpu_num=1):
+def search_files(queryprefix_list, index_path, save_suffix, index_on_gpu=False, search_batch_size=64, search_topk=32,
+                 nprobe=64, normalize=False, log=False, gpu_num=1):
     logging.info("Loading index...")
     index = faiss.read_index(index_path)
     index.nprobe = nprobe
@@ -302,7 +312,7 @@ def search_files(queryprefix_list, index_path, save_suffix, index_on_gpu=False, 
             device_ids = range(gpu_num)
             co = faiss.GpuMultipleClonerOptions()
             co.shard = True
-            co.useFloat16 = True 
+            co.useFloat16 = True
             resources = [faiss.StandardGpuResources() for _ in device_ids]
             vres = faiss.GpuResourcesVector()
             vdev = faiss.Int32Vector()
@@ -329,7 +339,8 @@ def search_files(queryprefix_list, index_path, save_suffix, index_on_gpu=False, 
         FileUtils.save_to_disk(results, savepath, 'pt')
 
 
-def map_retrieval_to_data(datastore_file_list, retrieval_output_path, save_tag, topk=1000, remove_dup_sent=False, min_dist=0):
+def map_retrieval_to_data(datastore_file_list, retrieval_output_path, save_tag, topk=1000, remove_dup_sent=False,
+                          min_dist=0):
     logging.info("Loading index...")
     retrieval_output = FileUtils.load_file(retrieval_output_path)
     indices, scores = [], []
@@ -361,6 +372,7 @@ def main():
         "train_index": train_index,
         "map_retrieval_to_data": map_retrieval_to_data
     })
+
 
 if __name__ == "__main__":
     main()

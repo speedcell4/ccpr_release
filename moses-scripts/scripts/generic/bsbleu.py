@@ -125,8 +125,8 @@ class Document:
             for k in xrange(1, len(R)):
                 k_snt = R[k].snt[i]
                 assert len(R[k].snt) == len(hyp.snt), (
-                    "Mismatch in number of sentences " +
-                    "between reference and candidate")
+                        "Mismatch in number of sentences " +
+                        "between reference and candidate")
                 if abs(len(k_snt) - clen) == abs(len(R[K].snt[i]) - clen):
                     if len(k_snt) < len(R[K].snt[i]):
                         K = k
@@ -159,7 +159,8 @@ if __name__ == "__main__":
         # compute multi-reference BLEU
         Rx.update(c, R)
         bleu = BleuScore(c, Rx, bootstrap=args.bootstrap)
-        print "%5.2f %s [%5.2f-%5.2f; %5.2f] %s" % (
+        print
+        "%5.2f %s [%5.2f-%5.2f; %5.2f] %s" % (
             100 * bleu.actual,
             os.path.basename(Rx.fname),
             100 * bleu.bootstrap[int((args.alpha / 2) * args.bootstrap)],
@@ -170,7 +171,8 @@ if __name__ == "__main__":
         if args.individual:
             for r in R:
                 bleu = BleuScore(c, r, bootstrap=args.bootstrap)
-                print "  %5.2f %s" % (
+                print
+                "  %5.2f %s" % (
                     100 * bleu.actual, os.path.basename(r.fname))
                 # print bleu.prec, bleu.hyplen, bleu.reflen, bleu.BP
 

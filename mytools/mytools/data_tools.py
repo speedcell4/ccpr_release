@@ -13,6 +13,7 @@ import faiss
 from faiss.contrib.ondisk import merge_ondisk
 import numpy as np
 import random
+
 random.seed(10086)
 
 
@@ -43,7 +44,7 @@ def build_word_vocab(input_file, save_path):
     if lang not in LANGUAGE_LIST:
         logging.error("Unkown language: {}".format(lang))
         raise ValueError
-    
+
     moses_tokenizer = DataUtils.get_moses_tokenizer(lang)
     data = FileUtils.load_file(input_file)
     c = Counter()
@@ -64,8 +65,10 @@ def sample_from_bilingual_data(src_input_file, tgt_input_file, num_samples=2000,
     sampled_ids = random.sample(ids, k=num_samples)
     sampled_src_data = [src_data[i] for i in sampled_ids]
     sampled_tgt_data = [tgt_data[i] for i in sampled_ids]
-    FileUtils.save_file(sampled_src_data, FileUtils.handle_file_extension(src_input_file, "sample.{}".format(num_samples)))
-    FileUtils.save_file(sampled_tgt_data, FileUtils.handle_file_extension(tgt_input_file, "sample.{}".format(num_samples)))
+    FileUtils.save_file(sampled_src_data,
+                        FileUtils.handle_file_extension(src_input_file, "sample.{}".format(num_samples)))
+    FileUtils.save_file(sampled_tgt_data,
+                        FileUtils.handle_file_extension(tgt_input_file, "sample.{}".format(num_samples)))
 
 
 def sample_from_monolingual_data(input_file, num_samples=2000, file_type="txt"):
@@ -75,7 +78,6 @@ def sample_from_monolingual_data(input_file, num_samples=2000, file_type="txt"):
     sampled_ids = random.sample(ids, k=num_samples)
     sampled_data = [data[i] for i in sampled_ids]
     FileUtils.save_file(sampled_data, FileUtils.handle_file_extension(input_file, "sample.{}".format(num_samples)))
-
 
 
 if __name__ == "__main__":

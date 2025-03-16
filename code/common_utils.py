@@ -1,4 +1,3 @@
-
 def adjust_config(config, tokenizer, args):
     # import pdb; pdb.set_trace()
     config.pad_token_id = tokenizer.pad_token_id
@@ -22,7 +21,7 @@ def adjust_config(config, tokenizer, args):
     else:
         config.phrase_hidden_size = 128
     if 'encoder_config_dir' in args:
-        config.encoder_config_dir = "{}/{}".format(args['root_dir'], args['encoder_config_dir']) 
+        config.encoder_config_dir = "{}/{}".format(args['root_dir'], args['encoder_config_dir'])
     if 'phrase_encoder_type' in args:
         config.phrase_encoder_type = args['phrase_encoder_type']
     if 'enable_phrase_pe' in args:
@@ -38,11 +37,12 @@ def adjust_config(config, tokenizer, args):
         config.reencoding_with_cls_token = args['reencoding_with_cls_token']
     else:
         config.reencoding_with_cls_token = False
-    
+
     # NOTE: `phrase_modeling_method` should be in [`attn`, `concat`]
     config.phrase_modeling_method = args.get('phrase_modeling_method', 'attn')
 
     return config
+
 
 def override(args, override_args=None):
     if override_args is not None:

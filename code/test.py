@@ -14,18 +14,19 @@ from dataloader import get_dataset_class
 from sentence_transformers import SentenceTransformer
 from common_utils import override
 
-spm.set_random_generator_seed(10086) # ensure the tokenization is re-producible
+spm.set_random_generator_seed(10086)  # ensure the tokenization is re-producible
+
 
 class ModelType:
-    OURS = "ours" # model trained by us
-    HF = "hf" # huggingface transformers
-    XPR = "xpr" # xpr model https://huggingface.co/cwszz/XPR/
+    OURS = "ours"  # model trained by us
+    HF = "hf"  # huggingface transformers
+    XPR = "xpr"  # xpr model https://huggingface.co/cwszz/XPR/
 
 
 class PhraseExtractionMethod:
-    SUB = "sub" # substraction
-    MEAN = "mean" # mean
-    CAT = "cat" # concatenation
+    SUB = "sub"  # substraction
+    MEAN = "mean"  # mean
+    CAT = "cat"  # concatenation
 
 
 def _fix_shard_repr_index(shard_idx_fpath, shard_start_idx):
@@ -53,7 +54,8 @@ def _hf_model_encode_batch(model, batch, layer_index=-2, extraction_method=Phras
     return phrase_hidden_states
 
 
-def _encode_data(args, data, device, proc_id, sent_start_id, prefix="phrase", encode_lang=None, model_type=ModelType.OURS, encoder_layer_index=-1, extraction_method=PhraseExtractionMethod.CAT):
+def _encode_data(args, data, device, proc_id, sent_start_id, prefix="phrase", encode_lang=None,
+                 model_type=ModelType.OURS, encoder_layer_index=-1, extraction_method=PhraseExtractionMethod.CAT):
     """
     NOTE: the subprocess may finish before the files are well saved on disk. Therefore, please run the encoding process and indexing process seperately.
     """
@@ -65,7 +67,8 @@ def _encode_data(args, data, device, proc_id, sent_start_id, prefix="phrase", en
     # overide args that are provided from command line:
     if 'inference_with_ner' in args and args['inference_with_ner']:
         import stanza
-        ner_model = stanza.Pipeline(lang=args['tgt_lang'], processors='tokenize,ner', model_dir="./cache/", tokenize_pretokenized=True)
+        ner_model = stanza.Pipeline(lang=args['tgt_lang'], processors='tokenize,ner', model_dir="./cache/",
+                                    tokenize_pretokenized=True)
     if model_type == ModelType.OURS:
         model = get_model_class(args['model_name']).from_pretrained(args)
         encoder_tokenizer = AutoTokenizer.from_pretrained(args['model_config_dir'])
@@ -76,11 +79,11 @@ def _encode_data(args, data, device, proc_id, sent_start_id, prefix="phrase", en
         pass
     else:
         raise NotImplementedError("Unknown model name: {}".format(args['model_name']))
-    
+
     model = model.eval().to(device)
     dataset_cls = get_dataset_class(args['ds_name'])
     if 'mt_subword_tokenizer_path' in args:
-        mt_subword_tokenizer = DataUtils.load_spm(args['mt_subword_tokenizer_path']) 
+        mt_subword_tokenizer = DataUtils.load_spm(args['mt_subword_tokenizer_path'])
     else:
         mt_subword_tokenizer = None
     phrase_tokenizer = None
@@ -112,28 +115,39 @@ def _encode_data(args, data, device, proc_id, sent_start_id, prefix="phrase", en
         if (len(line.strip().split()) >= args['max_sequence_len']):
             continue
         batch_sents.append(line.strip())
-        batch_sent_ids.append(sid+sent_start_id)
+        batch_sent_ids.append(sid + sent_start_id)
         if len(batch_sents) >= batch_size:
-            batch = encoder_tokenizer(batch_sents, truncation=True, padding=True, return_tensors="pt")           
+            batch = encoder_tokenizer(batch_sents, truncation=True, padding=True, return_tensors="pt")
             if args['inference_data_mode'] == "ngram":
-                aux_batch = dataset_cls.prepare_ngram_inference_batch(ngram_sets, batch_sents, batch_sent_ids, encoder_tokenizer, moses_tokenizer=moses_tokenizer, max_ngram_len=args['inference_max_ngram_len'])
+                aux_batch = dataset_cls.prepare_ngram_inference_batch(ngram_sets, batch_sents, batch_sent_ids,
+                                                                      encoder_tokenizer,
+                                                                      moses_tokenizer=moses_tokenizer,
+                                                                      max_ngram_len=args['inference_max_ngram_len'])
             elif args['inference_data_mode'] == "tokenizer":
-                aux_batch = dataset_cls.prepare_tokenizer_inference_batch(batch_sents, batch_sent_ids, encoder_tokenizer, phrase_tokenizer, mt_subword_tokenizer, only_phrase=False, n_sampling=args['inference_tokenizer_n_sampling'])
+                aux_batch = dataset_cls.prepare_tokenizer_inference_batch(batch_sents, batch_sent_ids,
+                                                                          encoder_tokenizer, phrase_tokenizer,
+                                                                          mt_subword_tokenizer, only_phrase=False,
+                                                                          n_sampling=args[
+                                                                              'inference_tokenizer_n_sampling'])
             elif args['inference_data_mode'] != "model":
                 raise ValueError
             batch = TorchUtils.move_to_device(batch, device=device)
             if model_type == ModelType.OURS:
                 if args['inference_data_mode'] == "model":
-                    phrase_hidden_states, aux_batch = model.encode_batch(batch, do_tokenize=True, verbose=True, max_phrase_len=inference_tokenizer_max_phrase_len, threshold=inference_tokenizer_threshold)
+                    phrase_hidden_states, aux_batch = model.encode_batch(batch, do_tokenize=True, verbose=True,
+                                                                         max_phrase_len=inference_tokenizer_max_phrase_len,
+                                                                         threshold=inference_tokenizer_threshold)
                     aux_batch['sent_ids'] = [batch_sent_ids[bid] for bid in aux_batch['phrase_batch_ids']]
                     aux_batch['phrase_piece'] = []
-                    for bid, start_id, end_id in zip(aux_batch['phrase_batch_ids'], aux_batch['phrase_start_ids'], aux_batch['phrase_end_ids']):
-                        aux_batch['phrase_piece'].append(" ".join(encoder_tokenizer.convert_ids_to_tokens(batch['input_ids'][bid, start_id:end_id+1])))
+                    for bid, start_id, end_id in zip(aux_batch['phrase_batch_ids'], aux_batch['phrase_start_ids'],
+                                                     aux_batch['phrase_end_ids']):
+                        aux_batch['phrase_piece'].append(" ".join(
+                            encoder_tokenizer.convert_ids_to_tokens(batch['input_ids'][bid, start_id:end_id + 1])))
                 else:
                     batch.update(aux_batch)
                     batch.pop("phrase_piece")
                     phrase_hidden_states = model.encode_batch(batch)
-            elif model_type ==  ModelType.HF:
+            elif model_type == ModelType.HF:
                 phrase_hidden_states = _hf_model_encode_batch(model, batch, encoder_layer_index, extraction_method)
             else:
                 raise NotImplementedError("Unknow encoding type {}".format(model_type))
@@ -141,8 +155,10 @@ def _encode_data(args, data, device, proc_id, sent_start_id, prefix="phrase", en
             phrase_end_ids = aux_batch['phrase_end_ids'].tolist()
             phrase_piece = aux_batch.pop("phrase_piece")
             batch.update(aux_batch)
-            sent_ids = aux_batch['sent_ids'].tolist() if not isinstance(aux_batch['sent_ids'], list) else aux_batch['sent_ids']
-            for s_id, p_p, p_h, start_id, end_id in zip(sent_ids, phrase_piece, phrase_hidden_states.cpu(), phrase_start_ids, phrase_end_ids):
+            sent_ids = aux_batch['sent_ids'].tolist() if not isinstance(aux_batch['sent_ids'], list) else aux_batch[
+                'sent_ids']
+            for s_id, p_p, p_h, start_id, end_id in zip(sent_ids, phrase_piece, phrase_hidden_states.cpu(),
+                                                        phrase_start_ids, phrase_end_ids):
                 indices.append(n_repr)
                 repr_list.append(p_h)
                 phrase_list.append(p_p)
@@ -154,12 +170,24 @@ def _encode_data(args, data, device, proc_id, sent_start_id, prefix="phrase", en
             batch_sents = []
             batch_sent_ids = []
             if len(indices) >= args['inference_cache_size']:
-                FileUtils.save_to_disk(indices, args['inference_save_dir'] + "/{}.{}.{}.{}.repr.idx".format(prefix, encode_lang, proc_id, n_shard))
-                FileUtils.save_to_disk(torch.stack(repr_list, dim=0), args['inference_save_dir'] + "/{}.{}.{}.{}.repr.dat".format(prefix, encode_lang, proc_id, n_shard))
-                FileUtils.save_to_disk(phrase_list, args['inference_save_dir'] + "/{}.{}.{}.{}.repr.txt".format(prefix, encode_lang, proc_id, n_shard))
-                FileUtils.save_to_disk(sentid_list, args['inference_save_dir'] + "/{}.{}.{}.{}.repr.sid".format(prefix, encode_lang, proc_id, n_shard))
-                FileUtils.save_to_disk(phrase_start_ids_list, args['inference_save_dir'] + "/{}.{}.{}.{}.repr.spos".format(prefix, encode_lang, proc_id, n_shard))
-                FileUtils.save_to_disk(phrase_end_ids_list, args['inference_save_dir'] + "/{}.{}.{}.{}.repr.epos".format(prefix, encode_lang, proc_id, n_shard))
+                FileUtils.save_to_disk(indices,
+                                       args['inference_save_dir'] + "/{}.{}.{}.{}.repr.idx".format(prefix, encode_lang,
+                                                                                                   proc_id, n_shard))
+                FileUtils.save_to_disk(torch.stack(repr_list, dim=0),
+                                       args['inference_save_dir'] + "/{}.{}.{}.{}.repr.dat".format(prefix, encode_lang,
+                                                                                                   proc_id, n_shard))
+                FileUtils.save_to_disk(phrase_list,
+                                       args['inference_save_dir'] + "/{}.{}.{}.{}.repr.txt".format(prefix, encode_lang,
+                                                                                                   proc_id, n_shard))
+                FileUtils.save_to_disk(sentid_list,
+                                       args['inference_save_dir'] + "/{}.{}.{}.{}.repr.sid".format(prefix, encode_lang,
+                                                                                                   proc_id, n_shard))
+                FileUtils.save_to_disk(phrase_start_ids_list,
+                                       args['inference_save_dir'] + "/{}.{}.{}.{}.repr.spos".format(prefix, encode_lang,
+                                                                                                    proc_id, n_shard))
+                FileUtils.save_to_disk(phrase_end_ids_list,
+                                       args['inference_save_dir'] + "/{}.{}.{}.{}.repr.epos".format(prefix, encode_lang,
+                                                                                                    proc_id, n_shard))
                 indices = []
                 repr_list = []
                 phrase_list = []
@@ -167,29 +195,38 @@ def _encode_data(args, data, device, proc_id, sent_start_id, prefix="phrase", en
                 phrase_start_ids_list = []
                 phrase_end_ids_list = []
                 n_shard += 1
-        
+
     if batch_sents:
         batch = encoder_tokenizer(batch_sents, truncation=True, padding=True, return_tensors="pt")
         if args['inference_data_mode'] == "ngram":
-            aux_batch = dataset_cls.prepare_ngram_inference_batch(ngram_sets, batch_sents, batch_sent_ids, encoder_tokenizer, moses_tokenizer=moses_tokenizer, max_ngram_len=args['inference_max_ngram_len'])
+            aux_batch = dataset_cls.prepare_ngram_inference_batch(ngram_sets, batch_sents, batch_sent_ids,
+                                                                  encoder_tokenizer, moses_tokenizer=moses_tokenizer,
+                                                                  max_ngram_len=args['inference_max_ngram_len'])
         elif args['inference_data_mode'] == "tokenizer":
-            aux_batch = dataset_cls.prepare_tokenizer_inference_batch(batch_sents, batch_sent_ids, encoder_tokenizer, phrase_tokenizer, mt_subword_tokenizer, only_phrase=False, n_sampling=args['inference_tokenizer_n_sampling'])
+            aux_batch = dataset_cls.prepare_tokenizer_inference_batch(batch_sents, batch_sent_ids, encoder_tokenizer,
+                                                                      phrase_tokenizer, mt_subword_tokenizer,
+                                                                      only_phrase=False,
+                                                                      n_sampling=args['inference_tokenizer_n_sampling'])
         elif args['inference_data_mode'] != "model":
             raise ValueError
 
         batch = TorchUtils.move_to_device(batch, device=device)
         if model_type == ModelType.OURS:
             if args['inference_data_mode'] == "model":
-                phrase_hidden_states, aux_batch = model.encode_batch(batch, do_tokenize=True, verbose=True, max_phrase_len=args.get('inference_tokenizer_max_phrase_len', 6))
+                phrase_hidden_states, aux_batch = model.encode_batch(batch, do_tokenize=True, verbose=True,
+                                                                     max_phrase_len=args.get(
+                                                                         'inference_tokenizer_max_phrase_len', 6))
                 aux_batch['sent_ids'] = [batch_sent_ids[bid] for bid in aux_batch['phrase_batch_ids']]
                 aux_batch['phrase_piece'] = []
-                for bid, start_id, end_id in zip(aux_batch['phrase_batch_ids'], aux_batch['phrase_start_ids'], aux_batch['phrase_end_ids']):
-                    aux_batch['phrase_piece'].append(" ".join(encoder_tokenizer.convert_ids_to_tokens(batch['input_ids'][bid, start_id:end_id+1])))
+                for bid, start_id, end_id in zip(aux_batch['phrase_batch_ids'], aux_batch['phrase_start_ids'],
+                                                 aux_batch['phrase_end_ids']):
+                    aux_batch['phrase_piece'].append(
+                        " ".join(encoder_tokenizer.convert_ids_to_tokens(batch['input_ids'][bid, start_id:end_id + 1])))
             else:
                 batch.update(aux_batch)
                 batch.pop("phrase_piece")
                 phrase_hidden_states = model.encode_batch(batch)
-        elif model_type ==  ModelType.HF:
+        elif model_type == ModelType.HF:
             phrase_hidden_states = _hf_model_encode_batch(model, batch, encoder_layer_index, extraction_method)
         else:
             raise NotImplementedError("Unknow encoding type {}".format(model_type))
@@ -197,8 +234,10 @@ def _encode_data(args, data, device, proc_id, sent_start_id, prefix="phrase", en
         phrase_end_ids = aux_batch['phrase_end_ids'].tolist()
         phrase_piece = aux_batch.pop("phrase_piece")
         batch.update(aux_batch)
-        sent_ids = aux_batch['sent_ids'].tolist() if not isinstance(aux_batch['sent_ids'], list) else aux_batch['sent_ids']
-        for s_id, p_p, p_h, start_id, end_id in zip(sent_ids, phrase_piece, phrase_hidden_states.cpu(), phrase_start_ids, phrase_end_ids):
+        sent_ids = aux_batch['sent_ids'].tolist() if not isinstance(aux_batch['sent_ids'], list) else aux_batch[
+            'sent_ids']
+        for s_id, p_p, p_h, start_id, end_id in zip(sent_ids, phrase_piece, phrase_hidden_states.cpu(),
+                                                    phrase_start_ids, phrase_end_ids):
             indices.append(n_repr)
             repr_list.append(p_h)
             phrase_list.append(p_p)
@@ -208,12 +247,24 @@ def _encode_data(args, data, device, proc_id, sent_start_id, prefix="phrase", en
             n_repr += 1
 
     if indices:
-        FileUtils.save_to_disk(indices, args['inference_save_dir'] + "/{}.{}.{}.{}.repr.idx".format(prefix, encode_lang, proc_id, n_shard))
-        FileUtils.save_to_disk(torch.stack(repr_list, dim=0), args['inference_save_dir'] + "/{}.{}.{}.{}.repr.dat".format(prefix, encode_lang, proc_id, n_shard))
-        FileUtils.save_to_disk(phrase_list, args['inference_save_dir'] + "/{}.{}.{}.{}.repr.txt".format(prefix, encode_lang, proc_id, n_shard))
-        FileUtils.save_to_disk(sentid_list, args['inference_save_dir'] + "/{}.{}.{}.{}.repr.sid".format(prefix, encode_lang, proc_id, n_shard))
-        FileUtils.save_to_disk(phrase_start_ids_list, args['inference_save_dir'] + "/{}.{}.{}.{}.repr.spos".format(prefix, encode_lang, proc_id, n_shard))
-        FileUtils.save_to_disk(phrase_end_ids_list, args['inference_save_dir'] + "/{}.{}.{}.{}.repr.epos".format(prefix, encode_lang, proc_id, n_shard))
+        FileUtils.save_to_disk(indices,
+                               args['inference_save_dir'] + "/{}.{}.{}.{}.repr.idx".format(prefix, encode_lang, proc_id,
+                                                                                           n_shard))
+        FileUtils.save_to_disk(torch.stack(repr_list, dim=0),
+                               args['inference_save_dir'] + "/{}.{}.{}.{}.repr.dat".format(prefix, encode_lang, proc_id,
+                                                                                           n_shard))
+        FileUtils.save_to_disk(phrase_list,
+                               args['inference_save_dir'] + "/{}.{}.{}.{}.repr.txt".format(prefix, encode_lang, proc_id,
+                                                                                           n_shard))
+        FileUtils.save_to_disk(sentid_list,
+                               args['inference_save_dir'] + "/{}.{}.{}.{}.repr.sid".format(prefix, encode_lang, proc_id,
+                                                                                           n_shard))
+        FileUtils.save_to_disk(phrase_start_ids_list,
+                               args['inference_save_dir'] + "/{}.{}.{}.{}.repr.spos".format(prefix, encode_lang,
+                                                                                            proc_id, n_shard))
+        FileUtils.save_to_disk(phrase_end_ids_list,
+                               args['inference_save_dir'] + "/{}.{}.{}.{}.repr.epos".format(prefix, encode_lang,
+                                                                                            proc_id, n_shard))
         n_shard += 1
 
 
@@ -230,15 +281,17 @@ def build_inference_index(retriever_inference_config, **overide_args):
     encoder_layer_index = args['encoder_layer_index'] if args.get('encoder_layer_index', None) is not None else -1
     encode_data = not args['data_no_encoding'] if args.get('data_no_encoding', None) is not None else True
     rename_data = not args['data_no_rename'] if args.get('data_no_rename', None) is not None else True
-    phrase_extraction_method = args['phrase_extraction_method'] if args.get('phrase_extraction_method', None) is not None else PhraseExtractionMethod.MEAN
+    phrase_extraction_method = args['phrase_extraction_method'] if args.get('phrase_extraction_method',
+                                                                            None) is not None else PhraseExtractionMethod.MEAN
     if encode_data:
         data = FileUtils.load_file(args['inference_datastore_file'])
-        shard_size  = (len(data) + n_device - 1) // n_device
+        shard_size = (len(data) + n_device - 1) // n_device
         args_list, sent_start_id = [], 0
         for proc_id in range(n_device):
-            shard_data = data[proc_id*shard_size:(proc_id+1)*shard_size]
+            shard_data = data[proc_id * shard_size:(proc_id + 1) * shard_size]
             device = torch.device("cuda:{}".format(proc_id)) if proc_id < n_device else torch.device("cpu")
-            args_list.append((args, shard_data, device, proc_id, sent_start_id, prefix, encode_lang, model_type, encoder_layer_index, phrase_extraction_method))
+            args_list.append((args, shard_data, device, proc_id, sent_start_id, prefix, encode_lang, model_type,
+                              encoder_layer_index, phrase_extraction_method))
             sent_start_id += len(shard_data)
         # _encode_data(*args_list[0])
         MPUtils.mp_func(_encode_data, args_list)
@@ -249,15 +302,34 @@ def build_inference_index(retriever_inference_config, **overide_args):
             device_shard_id = 0
             total_idx = 0
             while True:
-                fpath =  args['inference_save_dir'] + "/{}.{}.{}.{}.repr.idx".format(prefix, encode_lang, proc_id, device_shard_id)
+                fpath = args['inference_save_dir'] + "/{}.{}.{}.{}.repr.idx".format(prefix, encode_lang, proc_id,
+                                                                                    device_shard_id)
                 if FileUtils.exists(fpath):
                     total_idx += _fix_shard_repr_index(fpath, shard_repr_start_idx)
-                    FileUtils.rename(args['inference_save_dir'] + "/{}.{}.{}.{}.repr.idx".format(prefix, encode_lang, proc_id, device_shard_id), args['inference_save_dir'] + "/{}.{}.{}.repr.idx".format(prefix, encode_lang, n_shard))
-                    FileUtils.rename(args['inference_save_dir'] + "/{}.{}.{}.{}.repr.dat".format(prefix, encode_lang, proc_id, device_shard_id), args['inference_save_dir'] + "/{}.{}.{}.repr.dat".format(prefix, encode_lang, n_shard))
-                    FileUtils.rename(args['inference_save_dir'] + "/{}.{}.{}.{}.repr.txt".format(prefix, encode_lang, proc_id, device_shard_id), args['inference_save_dir'] + "/{}.{}.{}.repr.txt".format(prefix, encode_lang, n_shard))
-                    FileUtils.rename(args['inference_save_dir'] + "/{}.{}.{}.{}.repr.sid".format(prefix, encode_lang, proc_id, device_shard_id), args['inference_save_dir'] + "/{}.{}.{}.repr.sid".format(prefix, encode_lang, n_shard))
-                    FileUtils.rename(args['inference_save_dir'] + "/{}.{}.{}.{}.repr.spos".format(prefix, encode_lang, proc_id, device_shard_id), args['inference_save_dir'] + "/{}.{}.{}.repr.spos".format(prefix, encode_lang, n_shard))
-                    FileUtils.rename(args['inference_save_dir'] + "/{}.{}.{}.{}.repr.epos".format(prefix, encode_lang, proc_id, device_shard_id), args['inference_save_dir'] + "/{}.{}.{}.repr.epos".format(prefix, encode_lang, n_shard))
+                    FileUtils.rename(
+                        args['inference_save_dir'] + "/{}.{}.{}.{}.repr.idx".format(prefix, encode_lang, proc_id,
+                                                                                    device_shard_id),
+                        args['inference_save_dir'] + "/{}.{}.{}.repr.idx".format(prefix, encode_lang, n_shard))
+                    FileUtils.rename(
+                        args['inference_save_dir'] + "/{}.{}.{}.{}.repr.dat".format(prefix, encode_lang, proc_id,
+                                                                                    device_shard_id),
+                        args['inference_save_dir'] + "/{}.{}.{}.repr.dat".format(prefix, encode_lang, n_shard))
+                    FileUtils.rename(
+                        args['inference_save_dir'] + "/{}.{}.{}.{}.repr.txt".format(prefix, encode_lang, proc_id,
+                                                                                    device_shard_id),
+                        args['inference_save_dir'] + "/{}.{}.{}.repr.txt".format(prefix, encode_lang, n_shard))
+                    FileUtils.rename(
+                        args['inference_save_dir'] + "/{}.{}.{}.{}.repr.sid".format(prefix, encode_lang, proc_id,
+                                                                                    device_shard_id),
+                        args['inference_save_dir'] + "/{}.{}.{}.repr.sid".format(prefix, encode_lang, n_shard))
+                    FileUtils.rename(
+                        args['inference_save_dir'] + "/{}.{}.{}.{}.repr.spos".format(prefix, encode_lang, proc_id,
+                                                                                     device_shard_id),
+                        args['inference_save_dir'] + "/{}.{}.{}.repr.spos".format(prefix, encode_lang, n_shard))
+                    FileUtils.rename(
+                        args['inference_save_dir'] + "/{}.{}.{}.{}.repr.epos".format(prefix, encode_lang, proc_id,
+                                                                                     device_shard_id),
+                        args['inference_save_dir'] + "/{}.{}.{}.repr.epos".format(prefix, encode_lang, n_shard))
                     device_shard_id += 1
                     n_shard += 1
                 else:
@@ -286,7 +358,7 @@ def search_inference_index(retriever_inference_config, **overide_args):
     queryprefix_list = []
     n_shard = 0
     while True:
-        fpath =  args['inference_save_dir'] + "/{}.{}.{}.repr.idx".format(prefix, encode_lang, n_shard)
+        fpath = args['inference_save_dir'] + "/{}.{}.{}.repr.idx".format(prefix, encode_lang, n_shard)
         if FileUtils.exists(fpath):
             queryprefix_list.append(args['inference_save_dir'] + "/{}.{}.{}".format(prefix, encode_lang, n_shard))
             n_shard += 1
@@ -300,15 +372,13 @@ def search_inference_index(retriever_inference_config, **overide_args):
         index_path = args['inference_save_dir'] + "/{}.{}.index".format(args['inference_index_type'], index_name_tag)
     else:
         index_path = args['inference_save_dir'] + "/{}.index".format(args['inference_index_type'])
-    save_suffix = "{}.{}.retrieval.out.pt".format(args['inference_index_type'], index_name_tag) if index_name_tag else "retrieval.out.pt"
+    save_suffix = "{}.{}.retrieval.out.pt".format(args['inference_index_type'],
+                                                  index_name_tag) if index_name_tag else "retrieval.out.pt"
     search_files(queryprefix_list=queryprefix_list,
-                index_path=index_path,
-                save_suffix=save_suffix,
-                search_batch_size=args['inference_search_batch_size'], index_on_gpu=args['inference_on_gpu'],
-                search_topk=args['inference_retrieval_topk'], gpu_num=args['inference_gpu_num'])
-
-
-
+                 index_path=index_path,
+                 save_suffix=save_suffix,
+                 search_batch_size=args['inference_search_batch_size'], index_on_gpu=args['inference_on_gpu'],
+                 search_topk=args['inference_retrieval_topk'], gpu_num=args['inference_gpu_num'])
 
 
 if __name__ == "__main__":

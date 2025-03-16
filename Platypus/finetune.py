@@ -25,11 +25,11 @@ from utils.prompter import Prompter, LlamaChatPrompter
 
 class SavePeftModelCallback(TrainerCallback):
     def on_save(
-        self,
-        args: TrainingArguments,
-        state: TrainerState,
-        control: TrainerControl,
-        **kwargs,
+            self,
+            args: TrainingArguments,
+            state: TrainerState,
+            control: TrainerControl,
+            **kwargs,
     ):
         checkpoint_folder = os.path.join(args.output_dir, f"{PREFIX_CHECKPOINT_DIR}-{state.global_step}")
 
@@ -42,11 +42,11 @@ class SavePeftModelCallback(TrainerCallback):
 
 class LoadBestPeftModelCallback(TrainerCallback):
     def on_train_end(
-        self,
-        args: TrainingArguments,
-        state: TrainerState,
-        control: TrainerControl,
-        **kwargs,
+            self,
+            args: TrainingArguments,
+            state: TrainerState,
+            control: TrainerControl,
+            **kwargs,
     ):
         print(f"Loading best peft model from {state.best_model_checkpoint} (score: {state.best_metric}).")
         best_model_path = os.path.join(state.best_model_checkpoint, "adapter_model.bin")
@@ -57,40 +57,40 @@ class LoadBestPeftModelCallback(TrainerCallback):
 
 
 def train(
-    # model/data params
-    base_model: str = "", 
-    data_path: str = "",
-    output_dir: str = "",
-    # training hyperparams
-    enable_bf16: bool = False, # default is fp16
-    batch_size: int = 128,
-    micro_batch_size: int = 8,
-    num_epochs: int = 1,
-    learning_rate: float = 3e-4,
-    cutoff_len: int = 4096,
-    val_set_size: int = 0,
-    lr_scheduler: str = "cosine",
-    warmup_steps: int = 100, 
-    # lora hyperparams
-    lora_r: int = 16,
-    lora_alpha: int = 16,
-    lora_dropout: float = 0.05,
-    # from peft docs: ["q_proj", "k_proj", "v_proj", "o_proj", "fc_in", "fc_out", "wte", "gate_proj", "down_proj", "up_proj"]
-    lora_target_modules: List[str] = ["gate_proj", "down_proj", "up_proj"],
-    # llm hyperparams
-    train_on_inputs: bool = False,  # if False, masks out inputs in loss
-    add_eos_token: bool = False,
-    group_by_length: bool = False,  # faster, but produces an odd training loss curve
-    # wandb params
-    wandb_project: str = "",
-    wandb_run_name: str = "",
-    wandb_watch: str = "",  # options: false | gradients | all
-    wandb_log_model: str = "",  # options: false | true
-    resume_from_checkpoint: str = None,  # either training checkpoint or final adapter
-    prompt_template_name: str = "alpaca",
-    hf_cache_dir: str = "",
-    seed: int = 42,
-    save_steps: int = 1000
+        # model/data params
+        base_model: str = "",
+        data_path: str = "",
+        output_dir: str = "",
+        # training hyperparams
+        enable_bf16: bool = False,  # default is fp16
+        batch_size: int = 128,
+        micro_batch_size: int = 8,
+        num_epochs: int = 1,
+        learning_rate: float = 3e-4,
+        cutoff_len: int = 4096,
+        val_set_size: int = 0,
+        lr_scheduler: str = "cosine",
+        warmup_steps: int = 100,
+        # lora hyperparams
+        lora_r: int = 16,
+        lora_alpha: int = 16,
+        lora_dropout: float = 0.05,
+        # from peft docs: ["q_proj", "k_proj", "v_proj", "o_proj", "fc_in", "fc_out", "wte", "gate_proj", "down_proj", "up_proj"]
+        lora_target_modules: List[str] = ["gate_proj", "down_proj", "up_proj"],
+        # llm hyperparams
+        train_on_inputs: bool = False,  # if False, masks out inputs in loss
+        add_eos_token: bool = False,
+        group_by_length: bool = False,  # faster, but produces an odd training loss curve
+        # wandb params
+        wandb_project: str = "",
+        wandb_run_name: str = "",
+        wandb_watch: str = "",  # options: false | gradients | all
+        wandb_log_model: str = "",  # options: false | true
+        resume_from_checkpoint: str = None,  # either training checkpoint or final adapter
+        prompt_template_name: str = "alpaca",
+        hf_cache_dir: str = "",
+        seed: int = 42,
+        save_steps: int = 1000
 ):
     TorchUtils.set_seed(seed=seed)
 
@@ -163,14 +163,14 @@ def train(
             base_model,
             load_in_8bit=True,
             torch_dtype=torch.float16 if not enable_bf16 else torch.bfloat16,
-            device_map=device_map)        
+            device_map=device_map)
 
         tokenizer = LlamaTokenizer.from_pretrained(base_model)
-    
+
     bos = tokenizer.bos_token_id
     eos = tokenizer.eos_token_id
     pad = tokenizer.pad_token_id
-    print("pre-trained model's BOS EOS and PAD token id:",bos,eos,pad," => It should be 1 2 None")
+    print("pre-trained model's BOS EOS and PAD token id:", bos, eos, pad, " => It should be 1 2 None")
 
     tokenizer.pad_token_id = 0  # unk. we want this to be different from the eos token
     tokenizer.padding_side = "right"
@@ -184,9 +184,9 @@ def train(
             return_tensors=None,
         )
         if (
-            result["input_ids"][-1] != tokenizer.eos_token_id
-            and len(result["input_ids"]) < cutoff_len
-            and add_eos_token
+                result["input_ids"][-1] != tokenizer.eos_token_id
+                and len(result["input_ids"]) < cutoff_len
+                and add_eos_token
         ):
             result["input_ids"].append(tokenizer.eos_token_id)
             result["attention_mask"].append(1)
@@ -208,13 +208,13 @@ def train(
                 "input_ids": full_input_ids,
                 "labels": full_input_ids.copy(),
                 "attention_mask": [1] * len(full_input_ids)
-            } 
+            }
         else:
             tokenized_full_prompt = tokenize(full_prompt)
         if not train_on_inputs:
             user_prompt = prompter.generate_prompt(
                 data_point["instruction"], data_point["input"])
-            
+
             if prompt_template_name == "llama_chat":
                 user_input_ids = tokenizer.apply_chat_template(
                     user_prompt, truncation=True, max_length=cutoff_len,
@@ -223,21 +223,21 @@ def train(
                     "input_ids": user_input_ids,
                     "labels": user_input_ids.copy(),
                     "attention_mask": [1] * len(user_input_ids)
-                } 
+                }
             else:
                 tokenized_user_prompt = tokenize(
                     user_prompt, add_eos_token=add_eos_token)
-                
+
             user_prompt_len = len(tokenized_user_prompt["input_ids"])
 
             if add_eos_token:
                 user_prompt_len -= 1
 
             tokenized_full_prompt["labels"] = [
-                -100
-            ] * user_prompt_len + tokenized_full_prompt["labels"][
-                user_prompt_len:
-            ]  # TODO: Speed up?
+                                                  -100
+                                              ] * user_prompt_len + tokenized_full_prompt["labels"][
+                                                                    user_prompt_len:
+                                                                    ]  # TODO: Speed up?
         return tokenized_full_prompt
 
     model = prepare_model_for_int8_training(model)
@@ -347,5 +347,5 @@ def train(
 
 
 if __name__ == "__main__":
-    torch.cuda.empty_cache() 
+    torch.cuda.empty_cache()
     fire.Fire(train)
